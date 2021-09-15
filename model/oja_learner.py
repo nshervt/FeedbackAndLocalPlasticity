@@ -133,8 +133,7 @@ class Learner(nn.Module):
                 self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))  # not implemented
 
                 feedback_var = []
-                #'''
-                
+
                 for fl in range(num_feedback_layers):
                     in_dim = self.width
                     out_dim = self.width

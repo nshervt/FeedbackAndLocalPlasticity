@@ -41,16 +41,15 @@ def main(args):
         args.classes = list(range(64))
         dataset = imgnet.MiniImagenet(args.imagenet_path, mode='train')
         dataset_test = imgnet.MiniImagenet(args.imagenet_path, mode='test')
-        
-        
-    iterator_test = torch.utils.data.DataLoader(dataset_test, batch_size=5,
-                                                shuffle=True, num_workers=1)
 
-    iterator_train = torch.utils.data.DataLoader(dataset, batch_size=5,
-                                                 shuffle=True, num_workers=1)
+    # -- train and test datasets (Omniglot image: 963 classes, size: 84X84)
+    batch_size_train = 5
+    batch_size_test = 5
+    iterator_train = torch.utils.data.DataLoader(dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
+    iterator_test = torch.utils.data.DataLoader(dataset_test, batch_size=batch_size_test, shuffle=True, num_workers=1)
 
-    logger.info("Train set length = %d", len(iterator_train) * 5)
-    logger.info("Test set length = %d", len(iterator_test) * 5)
+    logger.info("Train set length = %d", len(iterator_train) * batch_size_train)
+    logger.info("Test set length = %d", len(iterator_test) * batch_size_test)
     sampler = ts.SamplerFactory.get_sampler(args.dataset, args.classes, dataset, dataset_test)
 
     # -- define model
@@ -274,8 +273,8 @@ def main(args):
         for i in range(y_qry.size()[1]):
             num = int(y_qry[0][i].cpu().numpy())
             y_qry[0][i] = torch.tensor(perm[old.index(num)])
-        if torch.cuda.is_available():
-            x_spt, y_spt, x_qry, y_qry = x_spt.cuda(), y_spt.cuda(), x_qry.cuda(), y_qry.cuda()
+
+        x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)
 
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
 

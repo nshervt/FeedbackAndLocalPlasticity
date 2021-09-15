@@ -205,7 +205,6 @@ class ModelFactory():
             
             layers.append(('linear', [1000, 128]))
             return layers
-        
           else:
             channels = 256
             # channels = 256
