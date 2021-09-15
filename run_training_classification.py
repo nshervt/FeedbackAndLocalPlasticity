@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import numpy as np
 import torch
@@ -23,7 +24,8 @@ def main(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
-    my_experiment = experiment(args.name, args, "/data5/jlindsey/continual/results", commit_changes=args.commit)
+    dir = os.getcwd()
+    my_experiment = experiment(args.name, args, dir + '/evals/', commit_changes=args.commit)
     writer = SummaryWriter(my_experiment.path + "tensorboard")
 
     logger = logging.getLogger('experiment')

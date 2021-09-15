@@ -40,8 +40,7 @@ class experiment:
             self.results = {}
             self.dir = output_dir
 
-            root_folder = datetime.datetime.now().strftime("%d%B%Y")
-
+            root_folder = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             if not os.path.exists(output_dir + root_folder):
                 try:
                     os.makedirs(output_dir + root_folder)
