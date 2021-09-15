@@ -108,6 +108,7 @@ class Learner(nn.Module):
  
         self.layer_plasticity = nn.ParameterList()
 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         starting_width = 84
         cur_width = starting_width
@@ -455,7 +456,7 @@ class Learner(nn.Module):
       new_vars = []
         
       y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-      y_onehot = y_onehot.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+      y_onehot = y_onehot.to(self.device)
       y_onehot.zero_()
       y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
       loss = 0.5*torch.sum((out - (y_onehot+out.detach()))**2)
@@ -511,7 +512,7 @@ class Learner(nn.Module):
               w, b = vars[idx], vars[idx + 1]
 
               y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-              y_onehot = y_onehot.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+              y_onehot = y_onehot.to(self.device)
               y_onehot.zero_()
               y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
 
@@ -555,11 +556,11 @@ class Learner(nn.Module):
 
                 #print(yoo)
                 if layer == num_layers - 1:
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).cuda() - self.feedback_strength_vars[layer+1]) * out
+                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
                     if self.use_derivative:
                         next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
                 else:    
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).cuda() - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
+                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
                     if self.use_derivative:
                         next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
 
@@ -568,7 +569,7 @@ class Learner(nn.Module):
                 #next_activations = torch.transpose(next_activations, 0, 1)
                 
                 
-                new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2), next_activations.size(3), activations.size(1), param[3], param[3]).cuda()
+                new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2), next_activations.size(3), activations.size(1), param[3], param[3]).to(self.device)
                 
                 divide_factor = next_activations.size(2) * next_activations.size(3)
                 
@@ -683,7 +684,7 @@ class Learner(nn.Module):
               w, b = vars[idx], vars[idx + 1]
 
               y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-              y_onehot = y_onehot.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+              y_onehot = y_onehot.to(self.device)
               y_onehot.zero_()
               y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
 
@@ -726,13 +727,13 @@ class Learner(nn.Module):
                     #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
 
                 if layer == num_layers - 1:
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).cuda() - self.feedback_strength_vars[layer+1]) * out
+                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
                     #next_activations = next_activations.detach()
                     if self.use_derivative:
                         next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
                 else:    
                     #print('nab4', torch.mean(torch.abs(next_activations)))
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).cuda() - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
+                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
                     #next_activations = next_activations.detach()
                     #print('naafter', torch.mean(torch.abs(next_activations)))
                     #print('before', torch.sum(next_activations**2))
