@@ -202,8 +202,8 @@ class ModelFactory():
             for lay in range(num_extra_dense_layers):
                 layers.append(('linear', [128, 128]))
                 layers.append(('relu', [True]))
-            
-            layers.append(('linear', [1000, 128]))
+
+            layers.append(('linear', [1000, 128]))  # todo: why output is 1000? Output dim (no. of classes) is not 1000.
             return layers
           else:
             channels = 256

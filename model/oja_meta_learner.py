@@ -225,7 +225,7 @@ class MetaLearingClassification(nn.Module):
         losses_q = [0 for _ in range(self.update_step + 1)]  # losses_q[i] is the loss on step i
         corrects = [0 for _ in range(self.update_step + 1)]
 
-        for i in range(1):
+        for i in range(1):  # fixme: what is this range(1)??
             if self.batch_learning:
                 logits = self.net(x_traj[:, 0], vars=None, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[:, 0])
@@ -239,7 +239,7 @@ class MetaLearingClassification(nn.Module):
                 fast_weights = self.net.getOjaUpdate(y_traj[:, 0], logits, None, hebbian=self.hebb)
             else:
                 logits = self.net(x_traj[0], vars=None, bn_training=False)
-                loss = F.cross_entropy(logits, y_traj[0])
+                loss = F.cross_entropy(logits, y_traj[0])  # todo: why number of classes=1000? logits.shape[1]
                 #grad = torch.autograd.grad(loss, self.net.parameters())
 
                 # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters())))
@@ -251,6 +251,7 @@ class MetaLearingClassification(nn.Module):
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
                 #print('yooo', params_old, params_old.learn)
                 params_new.learn = params_old.learn
+                # todo: what is the difference b/w self.net.parameters() & fast_weights?
 
             # this is the loss and accuracy before first update
             if self.batch_learning:

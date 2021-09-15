@@ -350,7 +350,7 @@ if __name__ == '__main__':
     argparser.add_argument("--plasticity_rank1", action="store_true")
     argparser.add_argument("--freeze_out_plasticity", action="store_true")
     argparser.add_argument("--use_error", action="store_true")
-    argparser.add_argument('--imagenet-path', help='Dataset path', default="/data5/jlindsey/continual/miniimagenet")
+    argparser.add_argument('--imagenet-path', help='Dataset path', default="/data5/jlindsey/continual/miniimagenet") # fixme
     argparser.add_argument("--plastic_update", action="store_true")
     argparser.add_argument("--randomize_plastic_weights", action="store_true")
     argparser.add_argument("--zero_plastic_weights", action="store_true")
