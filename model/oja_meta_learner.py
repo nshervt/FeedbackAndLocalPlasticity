@@ -22,13 +22,14 @@ class MetaLearingClassification(nn.Module):
         super(MetaLearingClassification, self).__init__()
         
         self.init_stuff(args)
+        self.net = Learner.Learner(config, args.num_feedback_layers, args.init_plasticity, args.feedback_strength,
+                                   width=args.width, feedback_l2=args.feedback_l2, optimize_out=args.optimize_out,
+                                   use_error=args.use_error, linear_feedback=args.linear_feedback,
+                                   use_derivative=args.use_derivative, error_only_to_output=args.error_only_to_output,
+                                   neuron_level_plasticity=args.neuron_level_plasticity,
+                                   layer_level_plasticity=args.layer_level_plasticity,
+                                   inner_plasticity_multiplier=args.inner_plasticity_multiplier)
 
-        self.net = Learner.Learner(config, args.num_feedback_layers, args.init_plasticity, args.feedback_strength, width=args.width, feedback_l2=args.feedback_l2, optimize_out=args.optimize_out, use_error=args.use_error, linear_feedback=args.linear_feedback, use_derivative=args.use_derivative, error_only_to_output=args.error_only_to_output, neuron_level_plasticity=args.neuron_level_plasticity, layer_level_plasticity=args.layer_level_plasticity, inner_plasticity_multiplier=args.inner_plasticity_multiplier)
-        
-        #print(self.net.parameters())
-        #print('hey')
-        #print(self.net.vars)
-        #sys.exit()
         self.init_opt()
         
     def init_stuff(self, args):
