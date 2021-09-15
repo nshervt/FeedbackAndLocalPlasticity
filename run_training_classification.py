@@ -16,9 +16,7 @@ from model.meta_learner import MetaLearingClassification
 from model.oja_meta_learner import MetaLearingClassification as OjaMetaLearingClassification
 import datasets.miniimagenet as imgnet
 
-
 logger = logging.getLogger('experiment')
-
 
 def main(args):
     torch.manual_seed(args.seed)
@@ -31,7 +29,6 @@ def main(args):
     logger = logging.getLogger('experiment')
 
     args.classes = list(range(963))
-    
     
     print('dataset', args.dataset, args.dataset == "imagenet")
 
@@ -56,20 +53,20 @@ def main(args):
     logger.info("Test set length = %d", len(iterator_test) * 5)
     sampler = ts.SamplerFactory.get_sampler(args.dataset, args.classes, dataset, dataset_test)
 
-    config = mf.ModelFactory.get_model(args.model_type, args.dataset, width=args.width, num_extra_dense_layers=args.num_extra_dense_layers)
+    # -- define model
+    config = mf.ModelFactory.get_model(args.model_type, args.dataset, width=args.width,
+                                       num_extra_dense_layers=args.num_extra_dense_layers)
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available(): # fixme run cuda on M1 chip
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
 
-
-
     if args.oja or args.hebb:
-      maml = OjaMetaLearingClassification(args, config).to(device)
+        maml = OjaMetaLearingClassification(args, config).to(device)
     else:
-      print('starting up')
-      maml = MetaLearingClassification(args, config).to(device)
+        print('starting up')
+        maml = MetaLearingClassification(args, config).to(device)
         
     
     import sys
@@ -186,11 +183,11 @@ def main(args):
 
                 
         maml.init_stuff(args)
-     
+
     maml.net.optimize_out = args.optimize_out
     if maml.net.optimize_out:
         maml.net.feedback_strength_vars.append(torch.nn.Parameter(maml.net.init_feedback_strength * torch.ones(1).cuda()))
-    #I recently un-indented this until the maml.init_opt() line.  If stuff stops working, try re-indenting this block
+    # I recently un-indented this until the maml.init_opt() line.  If stuff stops working, try re-indenting this block
     if args.zero_non_output_plasticity:
         for index in range(len(maml.net.vars_plasticity)-2):
             maml.net.vars_plasticity[index] = torch.nn.Parameter(maml.net.vars_plasticity[index] * 0)
@@ -241,7 +238,7 @@ def main(args):
             logger.info("RLN layer %s", str(name))
             param.learn = False
 
-    # Update the classifier
+    # -- Update the classifier
     list_of_params = list(filter(lambda x: x.learn, maml.parameters()))
     list_of_names = list(filter(lambda x: x[1].learn, maml.named_parameters()))
 
@@ -264,7 +261,7 @@ def main(args):
 
         x_spt, y_spt, x_qry, y_qry = maml.sample_training_data(d_traj_iterators, d_rand_iterator,
                                                                steps=args.update_step, iid=args.iid)
-        
+
         perm = np.random.permutation(args.tasks)
         
         old = []
@@ -277,13 +274,9 @@ def main(args):
         for i in range(y_qry.size()[1]):
             num = int(y_qry[0][i].cpu().numpy())
             y_qry[0][i] = torch.tensor(perm[old.index(num)])
-        #print('hi', y_qry.size())
-        #print('y_spt', y_spt)
-        #print('y_qry', y_qry)
         if torch.cuda.is_available():
             x_spt, y_spt, x_qry, y_qry = x_spt.cuda(), y_spt.cuda(), x_qry.cuda(), y_qry.cuda()
 
-        #print('heyyyy', x_spt.size(), y_spt.size(), x_qry.size(), y_qry.size())
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
 
         if step % 1 == 0:
@@ -376,13 +369,7 @@ if __name__ == '__main__':
     argparser.add_argument("--reset_feedback_strength", action="store_true")
     argparser.add_argument("--reset_feedback_vars", action="store_true")
 
-
     argparser.add_argument('--inner_plasticity_multiplier', type=float, default=100)
-
-
-
-
-
 
     args = argparser.parse_args()
 

@@ -8,11 +8,8 @@ from torch.nn import functional as F
 from torch.nn import DataParallel
 import sys
 
-import model.oja_learner as Learner #note it's the oja learner!!!
-
-import model.oja_learner_regression as LearnerRegression #note it's the oja learner!!!
-
-
+import model.oja_learner as Learner  # note it's the oja learner!!!
+import model.oja_learner_regression as LearnerRegression  # note it's the oja learner!!!
 
 logger = logging.getLogger("experiment")
 
@@ -21,9 +18,7 @@ class MetaLearingClassification(nn.Module):
     """
     MetaLearingClassification Learner
     """
-
     def __init__(self, args, config):
-
         super(MetaLearingClassification, self).__init__()
         
         self.init_stuff(args)
@@ -204,7 +199,6 @@ class MetaLearingClassification(nn.Module):
             return x_traj, y_traj, x_rand, y_rand #x_rand has both the randomly sampled points and the traj points, in that order
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
-        #print('heyy', x_rand.size())
         """
 
         :param x_traj:   [b, setsz, c_, h, w]
@@ -228,7 +222,6 @@ class MetaLearingClassification(nn.Module):
         if self.zero_plastic_weights:
             self.net.zero_plastic_weights()
 
-        
         losses_q = [0 for _ in range(self.update_step + 1)]  # losses_q[i] is the loss on step i
         corrects = [0 for _ in range(self.update_step + 1)]
 
@@ -260,7 +253,6 @@ class MetaLearingClassification(nn.Module):
                 params_new.learn = params_old.learn
 
             # this is the loss and accuracy before first update
-            
             if self.batch_learning:
                 logits_q = self.net(x_rand[0], self.net.parameters(), bn_training=False)
                 loss_q = F.cross_entropy(logits_q, y_rand[0])
@@ -281,7 +273,6 @@ class MetaLearingClassification(nn.Module):
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[1] = corrects[1] + correct
-                    
             else:
                 with torch.no_grad():
                     logits_q = self.net(x_rand[0], self.net.parameters(), bn_training=False)
@@ -365,8 +356,7 @@ class MetaLearingClassification(nn.Module):
             print("None")
         #sys.exit()
         '''
-        
-        
+
         #self.optimizer.zero_grad()
         #self.feedback_optimizer.zero_grad()
         #self.plasticity_optimizer.zero_grad()

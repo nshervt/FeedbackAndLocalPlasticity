@@ -12,9 +12,7 @@ class Learner(nn.Module):
     """
 
     """
-    
     def randomize_plastic_weights(self):
-
         idx = 0
         layer = 0
         for i, (name, param) in enumerate(self.config):
@@ -57,7 +55,6 @@ class Learner(nn.Module):
               layer += 1
             elif name == 'bn':
               idx += 2
-
 
     def __init__(self, config, num_feedback_layers, init_plasticity, init_feedback_strength, width=1024, feedback_l2=0.0, optimize_out=False, use_error=False, linear_feedback=False, use_derivative=False, error_only_to_output=False, neuron_level_plasticity=False, layer_level_plasticity=False, inner_plasticity_multiplier=1):
         """
@@ -102,8 +99,7 @@ class Learner(nn.Module):
         num_outputs = self.config[-1][1][0]
 
         self.plasticity = nn.ParameterList()
-        
-        
+
         self.neuron_plasticity = nn.ParameterList()
  
         self.layer_plasticity = nn.ParameterList()
@@ -117,9 +113,9 @@ class Learner(nn.Module):
                 stride=param[4]
                 padding=param[5]
                 
-                #print('cur_width', cur_width, param[3])
+                # print('cur_width', cur_width, param[3])
                 cur_width = (cur_width + 2*padding - param[3] + stride) // stride
-                #print('new cur_width', cur_width)
+                # print('new cur_width', cur_width)
                 # [ch_out, ch_in, kernelsz, kernelsz]
                 w = nn.Parameter(torch.ones(*param[:4]))
                 # gain=1 according to cbfin's implementation
@@ -130,11 +126,11 @@ class Learner(nn.Module):
                 
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
-                #self.activations_list.append([])
+                # self.activations_list.append([])
                 self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0], param[1]*param[2]*param[3]))) #not implemented
-                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1))) #not implemented
+                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
 
-                self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1))) #not implemented
+                self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))  # not implemented
 
                 feedback_var = []
                 #'''
@@ -153,17 +149,12 @@ class Learner(nn.Module):
                     feedback_var.append((feedback_w, feedback_b))
                     self.feedback_vars.append(feedback_w)
                     self.feedback_vars.append(feedback_b)
-                    
-                
+
                 self.feedback_vars_bundled.append(feedback_var)
-                self.feedback_vars_bundled.append(None)#bias feedback -- not implemented
-                
-                #'''
+                self.feedback_vars_bundled.append(None) # bias feedback -- not implemented
 
-                #self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#weight feedback -- not implemented
-                #self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
-                
-
+                # self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#weight feedback -- not implemented
+                # self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
             elif name is 'convt2d':
                 # [ch_in, ch_out, kernelsz, kernelsz, stride, padding]
                 w = nn.Parameter(torch.ones(*param[:4]))
@@ -175,18 +166,15 @@ class Learner(nn.Module):
                 
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[1])))
-                #self.activations_list.append([])
-                self.plasticity.append(nn.Parameter(torch.zeros(1))) #not implemented
-                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1))) #not implemented
-                self.layer_plasticity.append(nn.Parameter(torch.zeros(1))) #not implemented
+                # self.activations_list.append([])
+                self.plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
+                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
+                self.layer_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
 
 
                 self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#weight feedback -- not implemented
                 self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
-                
-                
             elif name is 'linear':
-
                 # [ch_out, ch_in]
                 w = nn.Parameter(torch.ones(*param))
                 # gain=1 according to cbfinn's implementation
@@ -221,7 +209,6 @@ class Learner(nn.Module):
                     self.feedback_vars.append(feedback_b)
                 self.feedback_vars_bundled.append(feedback_var)
                 self.feedback_vars_bundled.append(None)#bias feedback -- not implemented
-
             elif name is 'cat':
                 pass
             elif name is 'cat_start':
@@ -240,17 +227,14 @@ class Learner(nn.Module):
                 running_mean = nn.Parameter(torch.zeros(param[0]), requires_grad=False)
                 running_var = nn.Parameter(torch.ones(param[0]), requires_grad=False)
                 self.vars_bn.extend([running_mean, running_var])
-
             elif name in ['tanh', 'relu', 'leakyrelu', 'sigmoid', 'linear_act']:
               self.activations_list.append([])
               self.feedback_strength_vars.append(nn.Parameter(self.init_feedback_strength * torch.ones(1)))
-
             elif name in ['upsample', 'avg_pool2d', 'max_pool2d',
                           'flatten', 'reshape']:
                 continue
             else:
                 raise NotImplementedError
-       
 
     def extra_repr(self):
         info = ''

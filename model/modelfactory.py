@@ -83,7 +83,6 @@ class ModelFactory():
                     ('linear', [num_actions, hidden_size]),
                     ('linear_act', [True])
                 ]
-            
             elif model_type=="med3wide3":
                 hidden_size = width
                 return [
@@ -96,7 +95,6 @@ class ModelFactory():
                     ('linear', [num_actions, hidden_size]),
                     ('linear_act', [True])
                 ]
-            
             elif model_type=="short1widesuper":
                 hidden_size = width
                 return [
@@ -105,7 +103,6 @@ class ModelFactory():
                     ('linear', [num_actions, hidden_size*hidden_size*16]),
                     ('linear_act', [True])
                 ]
-            
             elif model_type=="linear":
                 hidden_size = width
                 return [
@@ -121,7 +118,6 @@ class ModelFactory():
                     ('linear', [num_actions, hidden_size * 5]),
                     ('linear_act', [True])
                 ]
-
             elif model_type=="non-linear":
                 hidden_size = width
                 return [
@@ -140,9 +136,8 @@ class ModelFactory():
                     ('linear_act', [True])
 
                 ]
-
         elif dataset == "omniglot":
-          if model_type=="eigthsize":
+          if model_type == "eigthsize":
             channels = 256
             # channels = 256
             layers =  [
@@ -173,10 +168,10 @@ class ModelFactory():
             for lay in range(num_extra_dense_layers):
                 layers.append(('linear', [1024, 1024]))
                 layers.append(('relu', [True]))
-            
+
             layers.append(('linear', [1000, 1024]))
             return layers
-          elif model_type=="halfsize":
+          elif model_type == "halfsize":
             channels = 128
             # channels = 256
             layers =  [
@@ -242,13 +237,11 @@ class ModelFactory():
             for lay in range(num_extra_dense_layers):
                 layers.append(('linear', [width, width]))
                 layers.append(('relu', [True]))
-            
+
             layers.append(('linear', [1000, width]))
             return layers
-
         elif dataset == "imagenet":
             channels = 256
-            # channels = 256
             layers = [
                 ('conv2d', [channels, 3, 3, 3, 2, 0]),
                 ('relu', [True]),
@@ -280,8 +273,6 @@ class ModelFactory():
             
             layers.append(('linear', [1000, width]))
             return layers
-        
-
         else:
             print("Unsupported model; either implement the model in model/ModelFactory or choose a different model")
             assert (False)
