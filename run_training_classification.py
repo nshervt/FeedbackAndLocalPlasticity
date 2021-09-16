@@ -42,7 +42,7 @@ def main(args):
         dataset = imgnet.MiniImagenet(args.imagenet_path, mode='train')
         dataset_test = imgnet.MiniImagenet(args.imagenet_path, mode='test')
 
-    # -- train and test datasets (Omniglot image: 963 classes, size: 84X84)
+    # -- train and test datasets (Omniglot: 963 classes, image size: 84X84)
     batch_size_train = 5
     batch_size_test = 5
     iterator_train = torch.utils.data.DataLoader(dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)

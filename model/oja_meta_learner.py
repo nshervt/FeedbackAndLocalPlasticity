@@ -239,6 +239,7 @@ class MetaLearingClassification(nn.Module):
 
                 fast_weights = self.net.getOjaUpdate(y_traj[:, 0], logits, None, hebbian=self.hebb)
             else:
+                # todo: difference b/w x_traj & x_rand?
                 logits = self.net(x_traj[0], vars=None, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[0])  # todo: why number of classes=1000? logits.shape[1]
                 #grad = torch.autograd.grad(loss, self.net.parameters())
@@ -251,7 +252,8 @@ class MetaLearingClassification(nn.Module):
 
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
                 params_new.learn = params_old.learn
-                # todo: what is the difference b/w self.net.parameters() & fast_weights?
+                # todo: difference b/w self.net.parameters() & fast_weights?
+                # todo: what is param.learn? why it's changing?
 
             # this is the loss and accuracy before first update
             if self.batch_learning:
@@ -277,15 +279,17 @@ class MetaLearingClassification(nn.Module):
                     losses_q[0] += loss_q
 
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
+                    # -- no. of correct predictions at time step 0.
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[0] = corrects[0] + correct
 
-                with torch.no_grad():
+                with torch.no_grad():  # todo: why 2 times torch.no_grad()?
                     # [setsz, nway]
                     logits_q = self.net(x_rand[0], fast_weights, bn_training=False)
                     loss_q = F.cross_entropy(logits_q, y_rand[0])
                     losses_q[1] += loss_q
 
+                    # -- no. of correct predictions at time step 1.
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[1] = corrects[1] + correct
@@ -307,6 +311,7 @@ class MetaLearingClassification(nn.Module):
                 loss_q = F.cross_entropy(logits, y_rand[0])
                 losses_q[k + 1] += loss_q
 
+                # -- no. of correct predictions at time step k+1.
                 with torch.no_grad():
                     pred_q = F.softmax(logits, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()  # convert to numpy
