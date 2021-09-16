@@ -330,9 +330,7 @@ class Learner(nn.Module):
                 
                 #self.activations_list[layer] = x.clone()
                 #layer += 1
-
             elif name == 'linear':
-
                 w, b = vars[idx], vars[idx + 1]
                 x = F.linear(x, w, b)
 
@@ -342,19 +340,15 @@ class Learner(nn.Module):
             
                 #self.activations_list[layer] = x.clone()
                 #layer += 1
-
             elif name == 'rep':
-                # print(x.shape)
                 if feature:
                     return x
             elif name == "cat_start":
                 cat_var = True
                 cat_list = []
-
             elif name == "cat":
                 cat_var = False
                 x = torch.cat(cat_list, dim=1)
-
             elif name == 'bn':
                 w, b = vars[idx], vars[idx + 1]
                 running_mean, running_var = self.vars_bn[bn_idx], self.vars_bn[bn_idx + 1]
@@ -362,31 +356,28 @@ class Learner(nn.Module):
                 idx += 2
                 bn_idx += 2
             elif name == 'flatten':
-                # print(x.shape)
-
                 x = x.view(x.size(0), -1)
-
             elif name == 'reshape':
                 # [b, 8] => [b, 2, 2, 2]
                 x = x.view(x.size(0), *param)
             elif name == 'relu':
                 x = F.relu(x, inplace=param[0])
-                self.activations_list[layer] = x#.clone();
+                self.activations_list[layer] = x  # .clone()
                 layer += 1
             elif name == 'leakyrelu':
                 x = F.leaky_relu(x, negative_slope=param[0], inplace=param[1])
-                self.activations_list[layer] = x#.clone();
+                self.activations_list[layer] = x  # .clone()
                 layer += 1
             elif name == 'tanh':
                 x = F.tanh(x)
-                self.activations_list[layer] = x#.clone();
+                self.activations_list[layer] = x  # .clone()
                 layer += 1
             elif name == 'sigmoid':
                 x = torch.sigmoid(x)
-                self.activations_list[layer] = x#.clone();
+                self.activations_list[layer] = x  # .clone()
                 layer += 1
             elif name == 'linear_act':
-                self.activations_list[layer] = x#.clone();
+                self.activations_list[layer] = x  # .clone()
                 layer += 1
             elif name == 'upsample':
                 x = F.upsample_nearest(x, scale_factor=param[0])
@@ -394,11 +385,8 @@ class Learner(nn.Module):
                 x = F.max_pool2d(x, param[0], param[1], param[2])
             elif name == 'avg_pool2d':
                 x = F.avg_pool2d(x, param[0], param[1], param[2])
-
             else:
                 raise NotImplementedError
-    
-    
 
         # make sure variable is used properly
         assert idx == len(vars)
@@ -431,355 +419,347 @@ class Learner(nn.Module):
 
     def getOjaUpdate(self, ground_truth, out, vars, hebbian=False):
       
-      #print('ipm', self.inner_plasticity_multiplier)
-      idx = 0
-      layer = 0
-      #print('update')
-      num_layers = len(self.activations_list)
-      new_vars = []
-        
-      y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-      y_onehot = y_onehot.to(self.device)
-      y_onehot.zero_()
-      y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
-      loss = 0.5*torch.sum((out - (y_onehot+out.detach()))**2)
-      if self.use_error:
+        #print('ipm', self.inner_plasticity_multiplier)
+        idx = 0
+        layer = 0
+        #print('update')
+        num_layers = len(self.activations_list)
+        new_vars = []
+          
+        y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
+        y_onehot = y_onehot.to(self.device)
+        y_onehot.zero_()
+        y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
+        loss = 0.5 * torch.sum((out - (y_onehot + out.detach())) ** 2)
+
+        if self.use_error:
             #print('gt', ground_truth)
             #print('out', out)
             loss = torch.nn.functional.cross_entropy(out, ground_truth)
-      
-      #loss = torch.nn.functional.cross_entropy(out, ground_truth)
-      if not self.use_derivative:
-          grad = torch.autograd.grad(loss, out, retain_graph=True)[0]#.detach()#-y_onehot#
-      else:
-          grad = y_onehot #dummy, gets replaced
-      #print('grad', grad.size(), grad)
-      #print(grad)
-      if vars is None:
-        vars = self.vars
-      
-      for var in vars:
-        new_vars.append(var)
-      
-      for name, param in self.config:
-        #print(name, idx, layer)
-        if name == 'conv2d':
         
-          #if not hasattr(vars[idx], 'learn'):
-          #  vars[idx].learn = True
-            
-          if not hasattr(self, 'optimize_out'):
-            self.optimize_out = False
-            
-          if not hasattr(self, 'use_error'):
-            self.use_error = False 
-          
-          if not hasattr(self, 'linear_feedback'):
-            self.linear_feedback = False 
-           
-          if not hasattr(self, 'use_derivative'):
-            self.use_derivative = False 
-            
-          if not hasattr(self, 'error_only_to_output'):
-            self.error_only_to_output = False 
-           
-          if not hasattr(self, 'neuron_level_plasticity'):
-            self.neuron_level_plasticity = False 
-            
-           
-          if not hasattr(self, 'layer_level_plasticity'):
-            self.layer_level_plasticity = False 
-            
-          if vars[idx].learn:
+        if not self.use_derivative:
+            grad = torch.autograd.grad(loss, out, retain_graph=True)[0]  # .detach() # - y_onehot
+        else:
+            grad = y_onehot  # dummy; gets replaced
+        # print('grad', grad.size(), grad)
+        # print(grad)
+        if vars is None:
+            vars = self.vars
         
-              w, b = vars[idx], vars[idx + 1]
-
-              y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-              y_onehot = y_onehot.to(self.device)
-              y_onehot.zero_()
-              y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
-
-              if layer == num_layers - 1 and not self.optimize_out:
-                  if self.use_error:
-                    next_activations = -grad
-                    
-                  else:
-                    next_activations = y_onehot
-              else:
+        for var in vars:
+            new_vars.append(var)
+        
+        for name, param in self.config:
+            #print(name, idx, layer)
+            if name == 'conv2d':
+            
+                #if not hasattr(vars[idx], 'learn'):
+                #  vars[idx].learn = True
+                  
+                if not hasattr(self, 'optimize_out'):
+                    self.optimize_out = False
+                  
+                if not hasattr(self, 'use_error'):
+                    self.use_error = False
                 
-                feedback_var = self.feedback_vars_bundled[idx]
-                if self.error_only_to_output:
-                    if self.use_error:
-                        next_activations = -grad
+                if not hasattr(self, 'linear_feedback'):
+                    self.linear_feedback = False
+                 
+                if not hasattr(self, 'use_derivative'):
+                    self.use_derivative = False
+                  
+                if not hasattr(self, 'error_only_to_output'):
+                    self.error_only_to_output = False
+                 
+                if not hasattr(self, 'neuron_level_plasticity'):
+                    self.neuron_level_plasticity = False
+  
+                if not hasattr(self, 'layer_level_plasticity'):
+                    self.layer_level_plasticity = False
+                  
+                if vars[idx].learn:
+                    w, b = vars[idx], vars[idx + 1]
+  
+                    y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
+                    y_onehot = y_onehot.to(self.device)
+                    y_onehot.zero_()
+                    y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
+  
+                    if layer == num_layers - 1 and not self.optimize_out:
+                        if self.use_error:
+                          next_activations = -grad
+                        else:
+                          next_activations = y_onehot
                     else:
-                        next_activations = y_onehot
-                        
-                    next_activations = torch.abs(next_activations)
-                else:
-                    if self.use_error:
-                        next_activations = -grad
-                    else:
-                        next_activations = y_onehot
-                for fl in range(self.num_feedback_layers):
-                    feedback_w = feedback_var[fl][0]
-                    feedback_b = feedback_var[fl][1]
-                    next_activations = F.linear(next_activations, feedback_w, feedback_b)
-                    if not self.linear_feedback:
-                        next_activations = F.relu(next_activations, inplace=param[0])
-                        
-                    #if self.use_derivative:
-                    #    if layer == num_layers-1:
-                    #        next_activations = next_activations * torch.sign(out)
-                    #    else:
-                    #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
+                        feedback_var = self.feedback_vars_bundled[idx]
+                        if self.error_only_to_output:
+                            if self.use_error:
+                                next_activations = -grad
+                            else:
+                                next_activations = y_onehot
+                                
+                            next_activations = torch.abs(next_activations)
+                        else:
+                            if self.use_error:
+                                next_activations = -grad
+                            else:
+                                next_activations = y_onehot
 
-                #print('activations size', next_activations.size(), self.activations_list[layer+1].size())
+                        for fl in range(self.num_feedback_layers):
+                            feedback_w = feedback_var[fl][0]
+                            feedback_b = feedback_var[fl][1]
+                            next_activations = F.linear(next_activations, feedback_w, feedback_b)
+                            if not self.linear_feedback:
+                                next_activations = F.relu(next_activations, inplace=param[0])
+                                
+                            #if self.use_derivative:
+                            #    if layer == num_layers-1:
+                            #        next_activations = next_activations * torch.sign(out)
+                            #    else:
+                            #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
+  
+                        #print('activations size', next_activations.size(), self.activations_list[layer+1].size())
+                        activations = self.activations_list[layer]
+                        next_activations = next_activations.view(self.activations_list[layer+1].size())
+  
+                        #print(yoo)
+                        if layer == num_layers - 1:
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
+                            if self.use_derivative:
+                                next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
+                        else:    
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
+                            if self.use_derivative:
+                                next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
+  
+                        #print('activations size', activations.size(), 'next activations size', next_activations.size())
+                        
+                        #next_activations = torch.transpose(next_activations, 0, 1)
+                        
+                        
+                        new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2), next_activations.size(3), activations.size(1), param[3], param[3]).to(self.device)
+                        
+                        divide_factor = next_activations.size(2) * next_activations.size(3)
+                        
+                        stride = param[4]
+                        padding = param[5]
+                        newcoord = -1
+                        for xcoord in range(0, activations.shape[2]-param[3]+1, stride):
+                            newcoord += 1
+                            #print(newcoord, xcoord, activations.shape[2]-stride+1, activations.shape[2], stride)
+                            new_activations[:, newcoord, newcoord, :, :, :] = activations[:, :, xcoord:xcoord+param[3], xcoord:xcoord+param[3]]
+                            
+                        next_activations = torch.transpose(next_activations, 1, 2)
+                        next_activations = torch.transpose(next_activations, 2, 3)
+                        next_activations = next_activations.contiguous().view(-1, next_activations.size(3))
+                        
+                        new_activations = new_activations.view(new_activations.size(0)*new_activations.size(1)*new_activations.size(2), -1)
+                        
+                        activations = new_activations
+                        #print('df', divide_factor)
+                        next_activations = next_activations / divide_factor
+                        activations = activations / divide_factor
+                        
+                        activations = torch.clamp(activations, 0.0, 1.0)
+                        next_activations = torch.clamp(next_activations, 0.0, 1.0)
+                        activations[torch.isnan(activations)] = 0.0
+                        next_activations[torch.isnan(next_activations)] = 0.0
+                        #print('act mag', torch.mean(torch.abs(activations)), torch.mean(torch.abs(next_activations)))
+                        #print('activations size', activations.size(), 'next activations size', next_activations.size())
+                                
+                    #if (len(activations.shape) > 2):
+                    #  activations = activations.view(next_activations.shape[0], -1)
+  
+                    #print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
+  
+                    if hebbian:
+                      if self.neuron_level_plasticity:
+                          oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations))
+                      elif self.layer_level_plasticity:
+                          oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
+                      else:
+                          oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
+                    else:
+                      if next_activations.size()[0] == 1:
+                          if self.neuron_level_plasticity:
+                               oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                          elif self.layer_level_plasticity:
+                               oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                          else:
+                              oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                      else:
+                          if self.neuron_level_plasticity:
+                              oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
+                          elif self.layer_level_plasticity:
+                              oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
+                          else:
+                              #print('plast size', self.plasticity[layer].size())
+                              #print('w size', w.size())
+                              oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w.view(w.size(0), w.size(1)*w.size(2)*w.size(3)))
+  
+                    #if layer == num_layers - 1:
+                    #print('oja mag', torch.sum(torch.abs(oja_update)))
+                    new_vars[idx] = new_vars[idx] + oja_update.view(w.size(0), w.size(1), w.size(2), w.size(3))
+                    new_vars[idx].learn = vars[idx].learn
+                    #print("Activations shape:  ", activations.shape)
+                    #print("Out shape:  ", out.shape)
+                    #print("ground_truth shape:  ", ground_truth.shape)
+                    #sys.exit()
+                idx += 2
+                layer += 1
+            elif name == 'convt2d':
+                #have not implemented hebbian update for conv.  would need to think about how to do it
+            
+                w, b = vars[idx], vars[idx + 1]
                 activations = self.activations_list[layer]
-                next_activations = next_activations.view(self.activations_list[layer+1].size())
+                idx += 2
+                layer += 1
+            elif name == 'linear':
+                
+                #if not hasattr(vars[idx], 'learn'):
+                #  vars[idx].learn = True
+                  
+                if not hasattr(self, 'optimize_out'):
+                    self.optimize_out = False
+                  
+                if not hasattr(self, 'use_error'):
+                    self.use_error = False
+                
+                if not hasattr(self, 'linear_feedback'):
+                    self.linear_feedback = False
+                 
+                if not hasattr(self, 'use_derivative'):
+                    self.use_derivative = False
+                  
+                if not hasattr(self, 'error_only_to_output'):
+                    self.error_only_to_output = False
+                 
+                if not hasattr(self, 'neuron_level_plasticity'):
+                    self.neuron_level_plasticity = False
+                  
+                 
+                if not hasattr(self, 'layer_level_plasticity'):
+                    self.layer_level_plasticity = False
+                  
+                if not hasattr(self, 'inner_plasticity_multiplier'):
+                    self.inner_plasticity_multiplier = 1
 
-                #print(yoo)
-                if layer == num_layers - 1:
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
-                    if self.use_derivative:
-                        next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
-                else:    
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
-                    if self.use_derivative:
-                        next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
-
-                #print('activations size', activations.size(), 'next activations size', next_activations.size())
-                
-                #next_activations = torch.transpose(next_activations, 0, 1)
-                
-                
-                new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2), next_activations.size(3), activations.size(1), param[3], param[3]).to(self.device)
-                
-                divide_factor = next_activations.size(2) * next_activations.size(3)
-                
-                stride = param[4]
-                padding = param[5]
-                newcoord = -1
-                for xcoord in range(0, activations.shape[2]-param[3]+1, stride):
-                    newcoord += 1
-                    #print(newcoord, xcoord, activations.shape[2]-stride+1, activations.shape[2], stride)
-                    new_activations[:, newcoord, newcoord, :, :, :] = activations[:, :, xcoord:xcoord+param[3], xcoord:xcoord+param[3]]
+                if vars[idx].learn:
+                    #print('grad', grad)
+                    w, b = vars[idx], vars[idx + 1]
+  
+                    y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
+                    y_onehot = y_onehot.to(self.device)
+                    y_onehot.zero_()
+                    y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
+  
+                    if layer == num_layers - 1 and not self.optimize_out:
+                        if self.use_error:
+                          next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#
+                        else:
+                          next_activations = y_onehot
+                    else:
+                      
+                        feedback_var = self.feedback_vars_bundled[idx]
+                        if self.error_only_to_output:
+                            if self.use_error:
+                                next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#-grad
+                            else:
+                                next_activations = y_onehot
+                                
+                            next_activations = torch.abs(next_activations)
+                        else:
+                            if self.use_error:
+                                next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#-grad
+                            else:
+                                next_activations = y_onehot
+                                
+                        #print('nawayb4', next_activations)
+                        for fl in range(self.num_feedback_layers):
+                            feedback_w = feedback_var[fl][0]
+                            feedback_b = feedback_var[fl][1]
+                            next_activations = F.linear(next_activations, feedback_w, feedback_b)
+                            #print('fb_w', torch.sum(torch.abs(feedback_w)), torch.mean(feedback_w), dim=1)
+                            #print('fb_b', torch.sum(torch.abs(feedback_b)), torch.mean(feedback_b), dim=1)
+                            #print('nalinear', torch.sum(torch.abs(next_activations)), torch.mean(next_activations))
+                            if not self.linear_feedback:
+                                next_activations = F.relu(next_activations, inplace=param[0])
+                                
+                            #if self.use_derivative:
+                            #    if layer == num_layers-1:
+                            #        next_activations = next_activations * torch.sign(out)
+                            #    else:
+                            #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
+    
+                        if layer == num_layers - 1:
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
+                            #next_activations = next_activations.detach()
+                            if self.use_derivative:
+                                next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
+                        else:    
+                            #print('nab4', torch.mean(torch.abs(next_activations)))
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
+                            #next_activations = next_activations.detach()
+                            #print('naafter', torch.mean(torch.abs(next_activations)))
+                            #print('before', torch.sum(next_activations**2))
+                            if self.use_derivative:
+                                next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
+                            #print('naafterderiv', torch.mean(torch.abs(next_activations)))
+                                #print('after', torch.sum(next_activations**2))
+    
+                    activations = self.activations_list[layer]
+                    if (len(activations.shape) > 2):
+                        activations = activations.view(next_activations.shape[0], -1)
+  
+                    #print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
+  
+                    if hebbian:
+                        if self.neuron_level_plasticity:
+                            oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations))
+                        elif self.layer_level_plasticity:
+                            oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
+                        else:
+                            oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
+                    else:
+                        if next_activations.size()[0] == 1:
+                            if self.neuron_level_plasticity:
+                                 oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                            elif self.layer_level_plasticity:
+                                 oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                            else:
+                                oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
+                        else:
+                            if self.neuron_level_plasticity:
+                                oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
+                            elif self.layer_level_plasticity:
+                                oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
+                            else:
+                                oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
+                                
+                    if layer != num_layers - 1:
+                        oja_update = oja_update * self.inner_plasticity_multiplier
+  
+  
+                    #print("layer", layer)
+                    #print('change size', oja_update.size())
+                    #print('change abs', torch.mean(torch.abs(oja_update)))
+                    #print('change mean', torch.mean(oja_update))
+                    #print('vars abs', torch.mean(torch.abs(new_vars[idx])))
+                    #print('vars mean', torch.mean(new_vars[idx]))
+                    #if layer == num_layers - 1:
                     
-                next_activations = torch.transpose(next_activations, 1, 2)
-                next_activations = torch.transpose(next_activations, 2, 3)
-                next_activations = next_activations.contiguous().view(-1, next_activations.size(3))
-                
-                new_activations = new_activations.view(new_activations.size(0)*new_activations.size(1)*new_activations.size(2), -1)
-                
-                activations = new_activations
-                #print('df', divide_factor)
-                next_activations = next_activations / divide_factor
-                activations = activations / divide_factor
-                
-                activations = torch.clamp(activations, 0.0, 1.0)
-                next_activations = torch.clamp(next_activations, 0.0, 1.0)
-                activations[torch.isnan(activations)] = 0.0
-                next_activations[torch.isnan(next_activations)] = 0.0
-                #print('act mag', torch.mean(torch.abs(activations)), torch.mean(torch.abs(next_activations)))
-                #print('activations size', activations.size(), 'next activations size', next_activations.size())
-                        
-              #if (len(activations.shape) > 2):
-              #  activations = activations.view(next_activations.shape[0], -1)
-
-              #print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
-
-              if hebbian:
-                if self.neuron_level_plasticity:
-                    oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations))
-                elif self.layer_level_plasticity:
-                    oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
-                else:
-                    oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
-              else:
-                if next_activations.size()[0] == 1:
-                    if self.neuron_level_plasticity:
-                         oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                    elif self.layer_level_plasticity:
-                         oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                    else:
-                        oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                else:
-                    if self.neuron_level_plasticity:
-                        oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
-                    elif self.layer_level_plasticity:
-                        oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
-                    else:
-                        #print('plast size', self.plasticity[layer].size())
-                        #print('w size', w.size())
-                        oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w.view(w.size(0), w.size(1)*w.size(2)*w.size(3)))
-
-              #if layer == num_layers - 1:
-              #print('oja mag', torch.sum(torch.abs(oja_update)))
-              new_vars[idx] = new_vars[idx] + oja_update.view(w.size(0), w.size(1), w.size(2), w.size(3))
-              new_vars[idx].learn = vars[idx].learn
-              #print("Activations shape:  ", activations.shape)
-              #print("Out shape:  ", out.shape)
-              #print("ground_truth shape:  ", ground_truth.shape)
-              #sys.exit()
-          idx += 2
-          layer += 1
-
-        elif name == 'convt2d':
-          #have not implemented hebbian update for conv.  would need to think about how to do it
-        
-          w, b = vars[idx], vars[idx + 1]
-          activations = self.activations_list[layer]
-          idx += 2
-          layer += 1
-
-        elif name == 'linear':
-            
-          #if not hasattr(vars[idx], 'learn'):
-          #  vars[idx].learn = True
-            
-          if not hasattr(self, 'optimize_out'):
-            self.optimize_out = False
-            
-          if not hasattr(self, 'use_error'):
-            self.use_error = False 
-          
-          if not hasattr(self, 'linear_feedback'):
-            self.linear_feedback = False 
-           
-          if not hasattr(self, 'use_derivative'):
-            self.use_derivative = False 
-            
-          if not hasattr(self, 'error_only_to_output'):
-            self.error_only_to_output = False 
-           
-          if not hasattr(self, 'neuron_level_plasticity'):
-            self.neuron_level_plasticity = False 
-            
-           
-          if not hasattr(self, 'layer_level_plasticity'):
-            self.layer_level_plasticity = False 
-            
-          if not hasattr(self, 'inner_plasticity_multiplier'):
-            self.inner_plasticity_multiplier = 1 
-            
-            
-          if vars[idx].learn:
-              #print('grad', grad)
-              w, b = vars[idx], vars[idx + 1]
-
-              y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
-              y_onehot = y_onehot.to(self.device)
-              y_onehot.zero_()
-              y_onehot.scatter_(1, ground_truth.view(-1, 1), 1)
-
-              if layer == num_layers - 1 and not self.optimize_out:
-                  if self.use_error:
-                    next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#
-                  else:
-                    next_activations = y_onehot
-              else:
-                
-                feedback_var = self.feedback_vars_bundled[idx]
-                if self.error_only_to_output:
-                    if self.use_error:
-                        next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#-grad
-                    else:
-                        next_activations = y_onehot
-                        
-                    next_activations = torch.abs(next_activations)
-                else:
-                    if self.use_error:
-                        next_activations = -grad#y_onehot - (out / torch.sum(out, 1, keepdim=True))#-grad
-                    else:
-                        next_activations = y_onehot
-                        
-                #print('nawayb4', next_activations)
-                for fl in range(self.num_feedback_layers):
-                    feedback_w = feedback_var[fl][0]
-                    feedback_b = feedback_var[fl][1]
-                    next_activations = F.linear(next_activations, feedback_w, feedback_b)
-                    #print('fb_w', torch.sum(torch.abs(feedback_w)), torch.mean(feedback_w), dim=1)
-                    #print('fb_b', torch.sum(torch.abs(feedback_b)), torch.mean(feedback_b), dim=1)
-                    #print('nalinear', torch.sum(torch.abs(next_activations)), torch.mean(next_activations))
-                    if not self.linear_feedback:
-                        next_activations = F.relu(next_activations, inplace=param[0])
-                        
-                    #if self.use_derivative:
-                    #    if layer == num_layers-1:
-                    #        next_activations = next_activations * torch.sign(out)
-                    #    else:
-                    #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
-
-                if layer == num_layers - 1:
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
-                    #next_activations = next_activations.detach()
-                    if self.use_derivative:
-                        next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
-                else:    
-                    #print('nab4', torch.mean(torch.abs(next_activations)))
-                    next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
-                    #next_activations = next_activations.detach()
-                    #print('naafter', torch.mean(torch.abs(next_activations)))
-                    #print('before', torch.sum(next_activations**2))
-                    if self.use_derivative:
-                        next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
-                    #print('naafterderiv', torch.mean(torch.abs(next_activations)))
-                        #print('after', torch.sum(next_activations**2))
-
-              activations = self.activations_list[layer]
-              if (len(activations.shape) > 2):
-                activations = activations.view(next_activations.shape[0], -1)
-
-              #print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
-
-              if hebbian:
-                if self.neuron_level_plasticity:
-                    oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations))
-                elif self.layer_level_plasticity:
-                    oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
-                else:
-                    oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations))
-              else:
-                if next_activations.size()[0] == 1:
-                    if self.neuron_level_plasticity:
-                         oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                    elif self.layer_level_plasticity:
-                         oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                    else:
-                        oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - (torch.t(next_activations)**2) * w)
-                else:
-                    if self.neuron_level_plasticity:
-                        oja_update = self.neuron_plasticity[layer].view(-1, 1) * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
-                    elif self.layer_level_plasticity:
-                        oja_update = self.layer_plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
-                    else:
-                        oja_update = self.plasticity[layer] * (torch.mm(torch.t(next_activations), activations) - torch.sum((next_activations**2), 0).unsqueeze(1) * w)
-                        
-              if layer != num_layers - 1:
-                oja_update = oja_update * self.inner_plasticity_multiplier
-
-
-              #print("layer", layer)
-              #print('change size', oja_update.size())
-              #print('change abs', torch.mean(torch.abs(oja_update)))
-              #print('change mean', torch.mean(oja_update))
-              #print('vars abs', torch.mean(torch.abs(new_vars[idx])))
-              #print('vars mean', torch.mean(new_vars[idx]))
-              #if layer == num_layers - 1:
-              
-              new_vars[idx] = new_vars[idx] + oja_update
-              new_vars[idx].learn = vars[idx].learn
-              #print("Activations shape:  ", activations.shape)
-              #print("Out shape:  ", out.shape)
-              #print("ground_truth shape:  ", ground_truth.shape)
-              #sys.exit()
-          idx += 2
-          layer += 1
-
-        elif name == 'bn':
-          idx += 2
-          #do not increment "layer"!
-      #for nv in range(len(new_vars)):
-      #  new_vars[nv] = torch.nn.Parameter(new_vars[nv])
-      #  new_vars[nv].learn = vars[nv].learn
-      return new_vars;
-
+                    new_vars[idx] = new_vars[idx] + oja_update
+                    new_vars[idx].learn = vars[idx].learn
+                    #print("Activations shape:  ", activations.shape)
+                    #print("Out shape:  ", out.shape)
+                    #print("ground_truth shape:  ", ground_truth.shape)
+                    #sys.exit()
+                idx += 2
+                layer += 1
+            elif name == 'bn':
+                idx += 2
+                #do not increment "layer"!
+        #for nv in range(len(new_vars)):
+        #  new_vars[nv] = torch.nn.Parameter(new_vars[nv])
+        #  new_vars[nv].learn = vars[nv].learn
+        return new_vars

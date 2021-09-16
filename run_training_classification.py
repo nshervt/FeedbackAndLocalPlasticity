@@ -67,8 +67,6 @@ def main(args):
         print('starting up')
         maml = MetaLearingClassification(args, config).to(device)
         
-    
-    import sys
     if args.from_saved:
         maml.net = torch.load(args.model)
         if args.use_derivative:

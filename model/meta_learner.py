@@ -166,9 +166,6 @@ class MetaLearingClassification(nn.Module):
         else:
             return x_traj, y_traj, x_rand, y_rand #x_rand has both the randomly sampled points and the traj points, in that order
 
-
-
-
     def forward(self, x_traj, y_traj, x_rand, y_rand):
         """
 

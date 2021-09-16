@@ -247,10 +247,9 @@ class MetaLearingClassification(nn.Module):
 
                 #fast_weights = list(
                 #    map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1], zip(grad, self.net.parameters())))
-
                 fast_weights = self.net.getOjaUpdate(y_traj[0], logits, None, hebbian=self.hebb)
+
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
-                #print('yooo', params_old, params_old.learn)
                 params_new.learn = params_old.learn
                 # todo: what is the difference b/w self.net.parameters() & fast_weights?
 
@@ -260,8 +259,6 @@ class MetaLearingClassification(nn.Module):
                 loss_q = F.cross_entropy(logits_q, y_rand[0])
                 losses_q[0] += loss_q
                 with torch.no_grad():
-
-
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[0] = corrects[0] + correct
@@ -270,8 +267,6 @@ class MetaLearingClassification(nn.Module):
                 losses_q[1] += loss_q
                 with torch.no_grad():
                     # [setsz, nway]
-
-
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[1] = corrects[1] + correct
@@ -300,11 +295,8 @@ class MetaLearingClassification(nn.Module):
                 logits = self.net(x_traj[k], fast_weights, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[k])
                 #grad = torch.autograd.grad(loss, fast_weights)
-                
-
                 #fast_weights = list(
                 #    map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1], zip(grad, fast_weights)))
-                
                 fast_weights = self.net.getOjaUpdate(y_traj[k], logits, fast_weights)
 
                 for params_old, params_new in zip(self.net.parameters(), fast_weights):
@@ -317,11 +309,9 @@ class MetaLearingClassification(nn.Module):
 
                 with torch.no_grad():
                     pred_q = F.softmax(logits, dim=1).argmax(dim=1)
-                    #print('howdy', pred_q, y_rand[0])
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()  # convert to numpy
                     corrects[k + 1] = corrects[k + 1] + correct
 
-        
         self.optimizer.zero_grad()
         self.feedback_optimizer.zero_grad()
         self.plasticity_optimizer.zero_grad()
