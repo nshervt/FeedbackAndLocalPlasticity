@@ -56,10 +56,8 @@ def main(args):
     config = mf.ModelFactory.get_model(args.model_type, args.dataset, width=args.width,
                                        num_extra_dense_layers=args.num_extra_dense_layers)
 
-    if torch.cuda.is_available(): # fixme run cuda on M1 chip
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
+    # -- set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # fixme run cuda on M1 chip
 
     if args.oja or args.hebb:
         maml = OjaMetaLearingClassification(args, config).to(device)
