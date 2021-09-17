@@ -16,7 +16,6 @@ from model.meta_learner import MetaLearingClassification
 from model.oja_meta_learner import MetaLearingClassification as OjaMetaLearingClassification
 import datasets.miniimagenet as imgnet
 
-logger = logging.getLogger('experiment')
 
 def main(args):
 

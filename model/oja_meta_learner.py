@@ -245,10 +245,11 @@ class MetaLearingClassification(nn.Module):
                 #                         zip(grad, self.net.parameters())))
                 fast_weights = self.net.getOjaUpdate(y_traj[0], logits, None, hebbian=self.hebb)
 
+            # todo: what is this part doing? what is param.learn? why it's changing?
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
                 params_new.learn = params_old.learn
                 # todo: difference b/w self.net.parameters() & fast_weights?
-                # todo: what is param.learn? why it's changing?
+                # todo: which one is the updated feedback?
 
             # this is the loss and accuracy before first update
             if self.batch_learning:
@@ -304,15 +305,17 @@ class MetaLearingClassification(nn.Module):
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[1] = corrects[1] + correct
 
+            # -- Iterate for K learning steps
             for k in range(1, self.update_step):
 
                 logits = self.net(x_traj[k], fast_weights, bn_training=False)
-                loss = F.cross_entropy(logits, y_traj[k])
+                loss = F.cross_entropy(logits, y_traj[k])  # todo: Only loss in last itr is returned! why?
                 # grad = torch.autograd.grad(loss, fast_weights)
                 # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1],
                 #                         zip(grad, fast_weights)))
                 fast_weights = self.net.getOjaUpdate(y_traj[k], logits, fast_weights)
 
+                # todo: what is this doing?!
                 for params_old, params_new in zip(self.net.parameters(), fast_weights):
                     params_new.learn = params_old.learn
 
@@ -327,9 +330,9 @@ class MetaLearingClassification(nn.Module):
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()  # convert to numpy
                     corrects[k + 1] = corrects[k + 1] + correct
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad()  # todo: what is optimizer?
         self.feedback_optimizer.zero_grad()
-        self.plasticity_optimizer.zero_grad()
+        self.plasticity_optimizer.zero_grad()  # todo: what is plasticity_optimizer?
         self.feedback_strength_optimizer.zero_grad()
         
         loss_q = losses_q[-1]
