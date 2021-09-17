@@ -230,24 +230,19 @@ class MetaLearingClassification(nn.Module):
             if self.batch_learning:
                 logits = self.net(x_traj[:, 0], vars=None, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[:, 0])
-                #grad = torch.autograd.grad(loss, self.net.parameters())
-
+                # grad = torch.autograd.grad(loss, self.net.parameters())
                 # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters())))
-
-                #fast_weights = list(
-                #    map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1], zip(grad, self.net.parameters())))
-
+                # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1],
+                #                         zip(grad, self.net.parameters())))
                 fast_weights = self.net.getOjaUpdate(y_traj[:, 0], logits, None, hebbian=self.hebb)
             else:
-                # todo: difference b/w x_traj & x_rand?
-                logits = self.net(x_traj[0], vars=None, bn_training=False)
-                loss = F.cross_entropy(logits, y_traj[0])  # todo: why number of classes=1000? logits.shape[1]
-                #grad = torch.autograd.grad(loss, self.net.parameters())
-
+                # todo: difference b/w x_traj & x_rand? Online vs iid training?
+                logits = self.net(x_traj[0], vars=None, bn_training=False)  # todo: why number of classes=1000? logits.shape[1]
+                loss = F.cross_entropy(logits, y_traj[0])  # todo: loss overwritten in the next learning steps. What is the use of this?
+                # grad = torch.autograd.grad(loss, self.net.parameters())
                 # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters())))
-
-                #fast_weights = list(
-                #    map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1], zip(grad, self.net.parameters())))
+                # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1],
+                #                         zip(grad, self.net.parameters())))
                 fast_weights = self.net.getOjaUpdate(y_traj[0], logits, None, hebbian=self.hebb)
 
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
@@ -278,10 +273,25 @@ class MetaLearingClassification(nn.Module):
                     loss_q = F.cross_entropy(logits_q, y_rand[0])
                     losses_q[0] += loss_q
 
-                    pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     # -- no. of correct predictions at time step 0.
+                    pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[0] = corrects[0] + correct
+
+                    if False:
+                        print('x_traj[0] :',x_traj[0].shape)
+                        print('x_traj :',x_traj.shape)
+                        print('logits :',logits.shape)
+                        print('y_traj[0] :',y_traj[0].shape)
+                        print('y_traj :',y_traj.shape)
+                        print('_________________________')
+                        print('x_rand[0] :',x_rand[0].shape)
+                        print('x_rand :',x_rand.shape)
+                        print('logits_q :',logits_q.shape)
+                        print('pred_q :',pred_q.shape)
+                        print('y_rand[0] :',y_rand[0].shape)
+                        print('y_rand :',y_rand.shape)
+                        quit()
 
                 with torch.no_grad():  # todo: why 2 times torch.no_grad()?
                     # [setsz, nway]
@@ -298,9 +308,9 @@ class MetaLearingClassification(nn.Module):
 
                 logits = self.net(x_traj[k], fast_weights, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[k])
-                #grad = torch.autograd.grad(loss, fast_weights)
-                #fast_weights = list(
-                #    map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1], zip(grad, fast_weights)))
+                # grad = torch.autograd.grad(loss, fast_weights)
+                # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0] if p[1].learn else p[1],
+                #                         zip(grad, fast_weights)))
                 fast_weights = self.net.getOjaUpdate(y_traj[k], logits, fast_weights)
 
                 for params_old, params_new in zip(self.net.parameters(), fast_weights):
@@ -354,21 +364,16 @@ class MetaLearingClassification(nn.Module):
         #sys.exit()
         '''
 
-        #self.optimizer.zero_grad()
-        #self.feedback_optimizer.zero_grad()
-        #self.plasticity_optimizer.zero_grad()
-        #self.feedback_strength_optimizer.zero_grad()
-        
         for p in self.net.vars:
             if p.grad is not None:
                 p.grad[torch.isnan(p.grad)] = 0
-                #print('yo1', torch.sum(torch.isnan(p.grad)))
+                # print('yo1', torch.sum(torch.isnan(p.grad)))
         for p in self.net.feedback_vars:
-            #print('feedback', torch.sum(torch.abs(p)))
+            # print('feedback', torch.sum(torch.abs(p)))
             if p.grad is not None:
                 p.grad[torch.isnan(p.grad)] = 0
         for p in self.net.feedback_strength_vars:
-            #print('feedback strength', p)
+            # print('feedback strength', p)
             if p.grad is not None:
                 p.grad[torch.isnan(p.grad)] = 0  
         for p in self.net.plasticity:
@@ -382,11 +387,8 @@ class MetaLearingClassification(nn.Module):
                 p.grad[torch.isnan(p.grad)] = 0 
                 
         self.optimizer.step()
-        
         self.feedback_optimizer.step()
-        
         self.plasticity_optimizer.step()
-        
         self.feedback_strength_optimizer.step()
         
         '''

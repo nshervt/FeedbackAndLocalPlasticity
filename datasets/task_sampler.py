@@ -202,7 +202,9 @@ class SampleSine:
 
 
 class OmniglotSampler:
-    # Class to sample tasks
+    """
+        Class to sample tasks
+    """
     def __init__(self, tasks, trainset, testset):
         self.tasks = tasks
         self.task_sampler = SampleOmni(trainset, testset)
@@ -224,44 +226,11 @@ class OmniglotSampler:
         return self.task_sampler.get(t, train)
 
     def sample_tasks(self, t, train=False):
-        # assert(false)
         dataset = self.task_sampler.get_task_trainset(t, train)
-        train_iterator = torch.utils.data.DataLoader(dataset,
-                                                     batch_size=1,
-                                                     shuffle=True, num_workers=1)
+        train_iterator = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=1)
         return train_iterator
 
-class ImagenetSampler:
-    # Class to sample tasks
-    def __init__(self, tasks, trainset, testset):
-        self.tasks = tasks
-        self.task_sampler = SampleImagenet(trainset, testset)
-        self.task_sampler.add_complete_iteraetor(list(range(0, int(len(self.tasks)))))
 
-    def get_complete_iterator(self):
-        return self.task_sampler.complete_iterator
-
-    def get_another_complete_iterator(self):
-        return self.task_sampler.another_complete_iterator
-
-    def sample_random(self):
-        return self.task_sampler.get([np.random.choice(self.tasks)])
-
-    def filter_upto(self, task):
-        return self.task_sampler.filter_upto(task)
-
-    def sample_task(self, t, train=True):
-        return self.task_sampler.get(t, train)
-
-    def sample_tasks(self, t, train=False):
-        # assert(false)
-        dataset = self.task_sampler.get_task_trainset(t, train)
-        train_iterator = torch.utils.data.DataLoader(dataset,
-                                                     batch_size=1,
-                                                     shuffle=True, num_workers=1)
-        return train_iterator
-    
-    
 class SampleOmni:
 
     def __init__(self, trainset, testset):
@@ -274,9 +243,7 @@ class SampleOmni:
     def add_complete_iteraetor(self, tasks):
         dataset = self.get_task_trainset(tasks, True)
         # dataset = self.get_task_testset(tasks)
-        train_iterator = torch.utils.data.DataLoader(dataset,
-                                                     batch_size=64,
-                                                     shuffle=True, num_workers=1)
+        train_iterator = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=True, num_workers=1)
         self.complete_iterator = train_iterator
         logger.info("Len of complete iterator = %d", len(self.complete_iterator) * 64)
 
@@ -352,7 +319,38 @@ class SampleOmni:
 
         return trainset
     
-    
+
+class ImagenetSampler:
+    # Class to sample tasks
+    def __init__(self, tasks, trainset, testset):
+        self.tasks = tasks
+        self.task_sampler = SampleImagenet(trainset, testset)
+        self.task_sampler.add_complete_iteraetor(list(range(0, int(len(self.tasks)))))
+
+    def get_complete_iterator(self):
+        return self.task_sampler.complete_iterator
+
+    def get_another_complete_iterator(self):
+        return self.task_sampler.another_complete_iterator
+
+    def sample_random(self):
+        return self.task_sampler.get([np.random.choice(self.tasks)])
+
+    def filter_upto(self, task):
+        return self.task_sampler.filter_upto(task)
+
+    def sample_task(self, t, train=True):
+        return self.task_sampler.get(t, train)
+
+    def sample_tasks(self, t, train=False):
+        # assert(false)
+        dataset = self.task_sampler.get_task_trainset(t, train)
+        train_iterator = torch.utils.data.DataLoader(dataset,
+                                                     batch_size=1,
+                                                     shuffle=True, num_workers=1)
+        return train_iterator
+
+
 class SampleImagenet:
 
     def __init__(self, trainset, testset):
@@ -365,9 +363,7 @@ class SampleImagenet:
     def add_complete_iteraetor(self, tasks):
         dataset = self.get_task_trainset(tasks, True)
         # dataset = self.get_task_testset(tasks)
-        train_iterator = torch.utils.data.DataLoader(dataset,
-                                                     batch_size=10,
-                                                     shuffle=True, num_workers=1)
+        train_iterator = torch.utils.data.DataLoader(dataset, batch_size=10, shuffle=True, num_workers=1)
         self.complete_iterator = train_iterator
         logger.info("Len of complete iterator = %d", len(self.complete_iterator) * 256)
 

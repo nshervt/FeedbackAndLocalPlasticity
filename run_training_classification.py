@@ -19,30 +19,31 @@ import datasets.miniimagenet as imgnet
 logger = logging.getLogger('experiment')
 
 def main(args):
+
+    # -- initialize seed, log, and device
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
-    dir = os.getcwd()
-    my_experiment = experiment(args.name, args, dir + '/evals/', commit_changes=args.commit)
-    writer = SummaryWriter(my_experiment.path + "tensorboard")
 
+    my_dir = os.getcwd()
+    my_experiment = experiment(args.name, args, my_dir + '/evals/', commit_changes=args.commit)
+    writer = SummaryWriter(my_experiment.path + "tensorboard")
     logger = logging.getLogger('experiment')
 
-    args.classes = list(range(963))
-    
-    print('dataset', args.dataset, args.dataset == "imagenet")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # fixme run cuda on M1 chip
 
+    # -- load datasets
+    print('dataset', args.dataset)
     if args.dataset != "imagenet":
-        
+        args.classes = list(range(963))
         dataset = df.DatasetFactory.get_dataset(args.dataset, background=True, train=True, all=True)
         dataset_test = df.DatasetFactory.get_dataset(args.dataset, background=True, train=False, all=True)
-
     else:
         args.classes = list(range(64))
         dataset = imgnet.MiniImagenet(args.imagenet_path, mode='train')
         dataset_test = imgnet.MiniImagenet(args.imagenet_path, mode='test')
 
-    # -- train and test datasets (Omniglot: 963 classes, image size: 84X84)
+    # -- split train and test datasets (Omniglot: 963 classes, image size: 84X84)
     batch_size_train = 5
     batch_size_test = 5
     iterator_train = torch.utils.data.DataLoader(dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
@@ -56,15 +57,14 @@ def main(args):
     config = mf.ModelFactory.get_model(args.model_type, args.dataset, width=args.width,
                                        num_extra_dense_layers=args.num_extra_dense_layers)
 
-    # -- set device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # fixme run cuda on M1 chip
-
+    # --
     if args.oja or args.hebb:
         maml = OjaMetaLearingClassification(args, config).to(device)
     else:
         print('starting up')
         maml = MetaLearingClassification(args, config).to(device)
-        
+
+    # --
     if args.from_saved:
         maml.net = torch.load(args.model)
         if args.use_derivative:
@@ -72,30 +72,20 @@ def main(args):
         maml.net.optimize_out = args.optimize_out
         if maml.net.optimize_out:
             maml.net.feedback_strength_vars.append(torch.nn.Parameter(maml.net.init_feedback_strength * torch.ones(1).cuda()))
-        
-            
+
         if args.reset_feedback_strength:
             for fv in maml.net.feedback_strength_vars:
                 w = nn.Parameter(torch.ones_like(fv)*args.feedback_strength)
                 fv.data = w   
                 
         if args.reset_feedback_vars:
-            
             print('howdy', maml.net.num_feedback_layers)
-
             maml.net.feedback_vars = nn.ParameterList()
             maml.net.feedback_vars_bundled = []
-            
             maml.net.vars_plasticity = nn.ParameterList()
             maml.net.plasticity = nn.ParameterList()
-
-
             maml.net.neuron_plasticity = nn.ParameterList()
-
             maml.net.layer_plasticity = nn.ParameterList()
-
-
-            
             starting_width = 84
             cur_width = starting_width
             num_outputs = maml.net.config[-1][1][0]
@@ -103,22 +93,22 @@ def main(args):
                 print('yo', i, name, param)
                 if name == 'conv2d':
                     print('in conv2d')
-                    stride=param[4]
-                    padding=param[5]
+                    stride = param[4]
+                    padding = param[5]
 
-                    #print('cur_width', cur_width, param[3])
-                    cur_width = (cur_width + 2*padding - param[3] + stride) // stride
+                    cur_width = (cur_width + 2 * padding - param[3] + stride) // stride
 
-                    maml.net.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4]).cuda()))
-                    maml.net.vars_plasticity.append(nn.Parameter(torch.ones(param[0]).cuda()))
+                    maml.net.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4]).to(device)))
+                    maml.net.vars_plasticity.append(nn.Parameter(torch.ones(param[0]).to(device)))
+                    # -- not implemented
                     #self.activations_list.append([])
-                    maml.net.plasticity.append(nn.Parameter(maml.net.init_plasticity * torch.ones(param[0], param[1]*param[2]*param[3]).cuda())) #not implemented
-                    maml.net.neuron_plasticity.append(nn.Parameter(torch.zeros(1).cuda())) #not implemented
-
-                    maml.net.layer_plasticity.append(nn.Parameter(maml.net.init_plasticity * torch.ones(1).cuda())) #not implemented
+                    maml.net.plasticity.append(nn.Parameter(maml.net.init_plasticity *
+                                                            torch.ones(param[0],
+                                                                       param[1] * param[2] * param[3]).to(device)))
+                    maml.net.neuron_plasticity.append(nn.Parameter(torch.zeros(1).to(device)))
+                    maml.net.layer_plasticity.append(nn.Parameter(maml.net.init_plasticity * torch.ones(1).to(device)))
                 
                     feedback_var = []
-                    
                     
                     for fl in range(maml.net.num_feedback_layers):
                         print('doing fl')
@@ -155,7 +145,6 @@ def main(args):
                     maml.net.neuron_plasticity.append(nn.Parameter(maml.net.init_plasticity * torch.ones(param[0]).cuda()))
                     maml.net.layer_plasticity.append(nn.Parameter(maml.net.init_plasticity * torch.ones(1).cuda()))
 
-
                     feedback_var = []
 
                     for fl in range(maml.net.num_feedback_layers):
@@ -167,15 +156,13 @@ def main(args):
                             in_dim = num_outputs
                         feedback_w_shape = [out_dim, in_dim]
                         feedback_w = nn.Parameter(torch.ones(feedback_w_shape).cuda())
-                        feedback_b =  nn.Parameter(torch.zeros(out_dim).cuda())
+                        feedback_b = nn.Parameter(torch.zeros(out_dim).cuda())
                         torch.nn.init.kaiming_normal_(feedback_w)
                         feedback_var.append((feedback_w, feedback_b))
                         maml.net.feedback_vars.append(feedback_w)
                         maml.net.feedback_vars.append(feedback_b)
                     maml.net.feedback_vars_bundled.append(feedback_var)
-                    maml.net.feedback_vars_bundled.append(None)#bias feedback -- not implemented
-
-
+                    maml.net.feedback_vars_bundled.append(None)  # bias feedback -- not implemented
                 
         maml.init_stuff(args)
 
@@ -220,7 +207,7 @@ def main(args):
 
     if args.freeze_out_plasticity:
         maml.net.plasticity[-1].requires_grad = False
-    total_ff_vars = 2*(6 + 2 + args.num_extra_dense_layers)
+    total_ff_vars = 2 * (6 + 2 + args.num_extra_dense_layers)
     frozen_layers = []
     for temp in range(args.rln * 2):
         frozen_layers.append("net.vars." + str(temp))
@@ -246,8 +233,7 @@ def main(args):
         for p in maml.net.plasticity:
             print(p.size(), torch.sum(p), p)
         '''
-        t1 = np.random.choice(args.classes, args.tasks, replace=False)#np.random.randint(1, args.tasks + 1), replace=False)
-
+        t1 = np.random.choice(args.classes, args.tasks, replace=False)
         d_traj_iterators = []
         for t in t1:
             d_traj_iterators.append(sampler.sample_task([t]))
@@ -273,6 +259,8 @@ def main(args):
         x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)
 
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
+        print(x_spt.shape, y_spt.shape, x_qry.shape, y_qry.shape)
+
 
         if step % 1 == 0:
             writer.add_scalar('/metatrain/train/accuracy', accs[-1], step)
@@ -310,9 +298,12 @@ if __name__ == '__main__':
     argparser.add_argument('--seeds', type=int, nargs='+', help='n way', default=[10])
     argparser.add_argument('--tasks', type=int, help='meta batch size, namely task num', default=1)
     argparser.add_argument('--meta_lr', type=float, help='meta-level outer learning rate', default=1e-4)
-    argparser.add_argument('--meta_feedback_lr', type=float, help='meta-level outer learning rate for feedback weights', default=1e-4)
-    argparser.add_argument('--meta_plasticity_lr', type=float, help='meta-level outer learning rate for plasticity', default=1e-4)
-    argparser.add_argument('--meta_feedback_strength_lr', type=float, help='meta-level outer learning rate for feedback strength', default=1e-4)
+    argparser.add_argument('--meta_feedback_lr', type=float,
+                           help='meta-level outer learning rate for feedback weights', default=1e-4)
+    argparser.add_argument('--meta_plasticity_lr', type=float,
+                           help='meta-level outer learning rate for plasticity', default=1e-4)
+    argparser.add_argument('--meta_feedback_strength_lr', type=float,
+                           help='meta-level outer learning rate for feedback strength', default=1e-4)
 
     argparser.add_argument('--update_lr', type=float, help='task-level inner update learning rate', default=0.01)
     argparser.add_argument('--update_step', type=int, help='task-level inner update steps', default=10)
@@ -321,16 +312,19 @@ if __name__ == '__main__':
     argparser.add_argument("--commit", action="store_true")
     argparser.add_argument("--oja", action="store_true") #don't use if --hebb is set
     argparser.add_argument("--hebb", action="store_true") #don't use if --oja is set
-    #argparser.add_argument("--feedback_strength_clamp", action="store_true") #don't use if --oja is set
-    argparser.add_argument('--feedback_strength', type=float, help='initial value for how much the feedback affects the activation.', default=0.5)
-    #argparser.add_argument("--trainable_plasticity", action="store_true")
+    # argparser.add_argument("--feedback_strength_clamp", action="store_true") #don't use if --oja is set
+    argparser.add_argument('--feedback_strength', type=float,
+                           help='initial value for how much the feedback affects the activation.', default=0.5)
+    # argparser.add_argument("--trainable_plasticity", action="store_true")
     argparser.add_argument('--init_plasticity', type=float, help='initial plasticity rate', default=0.001)
-    #argparser.add_argument("--optimize_feedback", action="store_true")
+    # argparser.add_argument("--optimize_feedback", action="store_true")
     argparser.add_argument("--train_on_new", action="store_true")
-    #argparser.add_argument("--propagate_feeedback", action="store_true")
-    argparser.add_argument('--num_extra_dense_layers', type=int, help='num dense layers in addition to one intermediate layer', default=0)
+    # argparser.add_argument("--propagate_feeedback", action="store_true")
+    argparser.add_argument('--num_extra_dense_layers', type=int,
+                           help='num dense layers in addition to one intermediate layer', default=0)
     argparser.add_argument('--num_feedback_layers', type=int, help='num dense layers in feedback', default=1)
-    #argparser.add_argument('--num_extra_nonplastic_dense_output_layers', type=int, help='num nonplastic linear layers in addition to one output layer', default=0)
+    # argparser.add_argument('--num_extra_nonplastic_dense_output_layers', type=int,
+    #                        help='num nonplastic linear layers in addition to one output layer', default=0)
     argparser.add_argument("--rln", type=int, default=6)
     argparser.add_argument("--rln_end", type=int, default=0)
     argparser.add_argument("--no_class_reset", action="store_true")
@@ -368,6 +362,6 @@ if __name__ == '__main__':
 
     args = argparser.parse_args()
 
-    args.name = args.name#"/".join([args.dataset, str(args.meta_lr).replace(".", "_"), args.name])
+    args.name = args.name  # "/".join([args.dataset, str(args.meta_lr).replace(".", "_"), args.name])
     print(args)
     main(args)

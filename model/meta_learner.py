@@ -51,8 +51,6 @@ class MetaLearingClassification(nn.Module):
         self.optimizer = optim.Adam(self.net.vars, lr=self.meta_lr)
         self.plasticity_optimizer = optim.Adam(self.net.vars_plasticity, lr=self.meta_plasticity_lr)
 
-
-
     def reset_classifer(self, class_to_reset):
         bias = self.net.parameters()[-1]
         weight = self.net.parameters()[-2]
@@ -177,7 +175,6 @@ class MetaLearingClassification(nn.Module):
         """
         #print('heyy', x_traj.size(), y_traj.size(), x_rand.size(), y_rand.size())
 
-    
         if self.randomize_plastic_weights:
             self.net.randomize_plastic_weights()
         if self.zero_plastic_weights:
