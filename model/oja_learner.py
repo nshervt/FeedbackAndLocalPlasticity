@@ -12,50 +12,6 @@ class Learner(nn.Module):
     """
 
     """
-    def randomize_plastic_weights(self):
-        idx = 0
-        layer = 0
-        for i, (name, param) in enumerate(self.config):
-            if name == 'conv2d':
-              idx += 2
-              layer += 1
-            elif name == 'convt2d':
-              idx += 2
-              layer += 1
-            elif name == 'linear':
-              if self.vars[idx].learn:
-                #print('randomizing: ', idx)
-                torch.nn.init.kaiming_normal_(self.vars[idx])
-                torch.nn.init.zeros_(self.vars[idx+1])
-                self.vars[idx].learn = True
-              idx += 2
-              layer += 1
-            elif name == 'bn':
-              idx += 2
-                    
-    def zero_plastic_weights(self):
-        
-        idx = 0
-        layer = 0
-        for i, (name, param) in enumerate(self.config):
-            if name == 'conv2d':
-              idx += 2
-              layer += 1
-            elif name == 'convt2d':
-              idx += 2
-              layer += 1
-            elif name == 'linear':
-              #w, b = self.vars[idx], self.vars[idx + 1]
-              if self.vars[idx].learn:
-                #print('zeroing: ', idx)
-                torch.nn.init.zeros_(self.vars[idx])
-                torch.nn.init.zeros_(self.vars[idx+1])
-                self.vars[idx].learn = True
-              idx += 2
-              layer += 1
-            elif name == 'bn':
-              idx += 2
-
     def __init__(self, config, num_feedback_layers, init_plasticity, init_feedback_strength, width=1024, feedback_l2=0.0, optimize_out=False, use_error=False, linear_feedback=False, use_derivative=False, error_only_to_output=False, neuron_level_plasticity=False, layer_level_plasticity=False, inner_plasticity_multiplier=1):
         """
 
@@ -88,20 +44,16 @@ class Learner(nn.Module):
         self.use_error = use_error
         self.linear_feedback = linear_feedback
         self.use_derivative = use_derivative
-        self.error_only_to_output = error_only_to_output   
+        self.error_only_to_output = error_only_to_output
 
         self.neuron_level_plasticity = neuron_level_plasticity
-        
         self.layer_level_plasticity = layer_level_plasticity
-        
         self.inner_plasticity_multiplier = inner_plasticity_multiplier
         
         num_outputs = self.config[-1][1][0]
 
         self.plasticity = nn.ParameterList()
-
         self.neuron_plasticity = nn.ParameterList()
- 
         self.layer_plasticity = nn.ParameterList()
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -110,30 +62,24 @@ class Learner(nn.Module):
         cur_width = starting_width
         for i, (name, param) in enumerate(self.config):
             if name is 'conv2d':
-                stride=param[4]
-                padding=param[5]
-                
-                # print('cur_width', cur_width, param[3])
-                cur_width = (cur_width + 2*padding - param[3] + stride) // stride
-                # print('new cur_width', cur_width)
-                # [ch_out, ch_in, kernelsz, kernelsz]
-                w = nn.Parameter(torch.ones(*param[:4]))
-                # gain=1 according to cbfin's implementation
+
+                stride, padding = param[4], param[5]
+                cur_width = (cur_width + 2 * padding - param[3] + stride) // stride
+                w = nn.Parameter(torch.ones(*param[:4]))  # [ch_out, ch_in, kernelsz, kernelsz], gain=1 acc to cbfinn
                 torch.nn.init.kaiming_normal_(w)
                 self.vars.append(w)
-                # [ch_out]
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
-                
+
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
                 # self.activations_list.append([])
-                self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0], param[1]*param[2]*param[3]))) #not implemented
-                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
 
-                self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))  # not implemented
+                self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0], param[1] * param[2] *
+                                                                                      param[3])))
+                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))
+                self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))
 
                 feedback_var = []
-
                 for fl in range(num_feedback_layers):
                     in_dim = self.width
                     out_dim = self.width
@@ -141,57 +87,52 @@ class Learner(nn.Module):
                         out_dim = param[0] * cur_width * cur_width
                     if fl == 0:
                         in_dim = num_outputs
+
                     feedback_w_shape = [out_dim, in_dim]
                     feedback_w = nn.Parameter(torch.ones(feedback_w_shape))
-                    feedback_b =  nn.Parameter(torch.zeros(out_dim))
+                    feedback_b = nn.Parameter(torch.zeros(out_dim))
                     torch.nn.init.kaiming_normal_(feedback_w)
                     feedback_var.append((feedback_w, feedback_b))
                     self.feedback_vars.append(feedback_w)
                     self.feedback_vars.append(feedback_b)
 
                 self.feedback_vars_bundled.append(feedback_var)
-                self.feedback_vars_bundled.append(None) # bias feedback -- not implemented
+                self.feedback_vars_bundled.append(None)  # bias feedback -- not implemented
 
                 # self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#weight feedback -- not implemented
                 # self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
             elif name is 'convt2d':
-                # [ch_in, ch_out, kernelsz, kernelsz, stride, padding]
-                w = nn.Parameter(torch.ones(*param[:4]))
-                # gain=1 according to cbfin's implementation
+
+                w = nn.Parameter(torch.ones(*param[:4]))  # [ch_in, ch_out, kernelsz, kernelsz, stride, padding], gain=1 acc to cbfinn
                 torch.nn.init.kaiming_normal_(w)
                 self.vars.append(w)
-                # [ch_in, ch_out]
                 self.vars.append(nn.Parameter(torch.zeros(param[1])))
-                
+
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[1])))
                 # self.activations_list.append([])
-                self.plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
-                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
-                self.layer_plasticity.append(nn.Parameter(torch.zeros(1)))  # not implemented
 
-
-                self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#weight feedback -- not implemented
-                self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
+                self.plasticity.append(nn.Parameter(torch.zeros(1)))
+                self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))
+                self.layer_plasticity.append(nn.Parameter(torch.zeros(1)))
+                self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))
+                self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))
             elif name is 'linear':
-                # [ch_out, ch_in]
-                w = nn.Parameter(torch.ones(*param))
-                # gain=1 according to cbfinn's implementation
+
+                w = nn.Parameter(torch.ones(*param))  # gain=1 according to cbfinn's implementation
                 torch.nn.init.kaiming_normal_(w)
                 self.vars.append(w)
-                # [ch_out]
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
-                
+
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param)))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
-                #self.activations_list.append([])
+                # self.activations_list.append([])
+
                 self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(*param)))
                 self.neuron_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0])))
                 self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))
 
-
                 feedback_var = []
-                
                 for fl in range(num_feedback_layers):
                     in_dim = self.width
                     out_dim = self.width
@@ -201,13 +142,14 @@ class Learner(nn.Module):
                         in_dim = num_outputs
                     feedback_w_shape = [out_dim, in_dim]
                     feedback_w = nn.Parameter(torch.ones(feedback_w_shape))
-                    feedback_b =  nn.Parameter(torch.zeros(out_dim))
+                    feedback_b = nn.Parameter(torch.zeros(out_dim))
                     torch.nn.init.kaiming_normal_(feedback_w)
                     feedback_var.append((feedback_w, feedback_b))
                     self.feedback_vars.append(feedback_w)
                     self.feedback_vars.append(feedback_b)
+
                 self.feedback_vars_bundled.append(feedback_var)
-                self.feedback_vars_bundled.append(None)#bias feedback -- not implemented
+                self.feedback_vars_bundled.append(None)  # bias feedback -- not implemented
             elif name is 'cat':
                 pass
             elif name is 'cat_start':
@@ -215,25 +157,69 @@ class Learner(nn.Module):
             elif name is "rep":
                 pass
             elif name is 'bn':
-                # [ch_out]
-                w = nn.Parameter(torch.ones(param[0]))
+                w = nn.Parameter(torch.ones(param[0]))  # [ch_out]
                 self.vars.append(w)
-                # [ch_out]
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
+
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
+
                 # must set requires_grad=False
                 running_mean = nn.Parameter(torch.zeros(param[0]), requires_grad=False)
                 running_var = nn.Parameter(torch.ones(param[0]), requires_grad=False)
                 self.vars_bn.extend([running_mean, running_var])
             elif name in ['tanh', 'relu', 'leakyrelu', 'sigmoid', 'linear_act']:
-              self.activations_list.append([])
-              self.feedback_strength_vars.append(nn.Parameter(self.init_feedback_strength * torch.ones(1)))
-            elif name in ['upsample', 'avg_pool2d', 'max_pool2d',
-                          'flatten', 'reshape']:
+                self.activations_list.append([])
+
+                self.feedback_strength_vars.append(nn.Parameter(self.init_feedback_strength * torch.ones(1)))
+            elif name in ['upsample', 'avg_pool2d', 'max_pool2d', 'flatten', 'reshape']:
                 continue
             else:
                 raise NotImplementedError
+
+    def randomize_plastic_weights(self):
+        idx = 0
+        layer = 0
+        for i, (name, param) in enumerate(self.config):
+            if name == 'conv2d':
+                idx += 2
+                layer += 1
+            elif name == 'convt2d':
+                idx += 2
+                layer += 1
+            elif name == 'linear':
+                if self.vars[idx].learn:
+                    # print('randomizing: ', idx)
+                    torch.nn.init.kaiming_normal_(self.vars[idx])
+                    torch.nn.init.zeros_(self.vars[idx + 1])
+                    self.vars[idx].learn = True
+                idx += 2
+                layer += 1
+            elif name == 'bn':
+                idx += 2
+
+    def zero_plastic_weights(self):
+
+        idx = 0
+        layer = 0
+        for i, (name, param) in enumerate(self.config):
+            if name == 'conv2d':
+                idx += 2
+                layer += 1
+            elif name == 'convt2d':
+                idx += 2
+                layer += 1
+            elif name == 'linear':
+                # w, b = self.vars[idx], self.vars[idx + 1]
+                if self.vars[idx].learn:
+                    # print('zeroing: ', idx)
+                    torch.nn.init.zeros_(self.vars[idx])
+                    torch.nn.init.zeros_(self.vars[idx + 1])
+                    self.vars[idx].learn = True
+                idx += 2
+                layer += 1
+            elif name == 'bn':
+                idx += 2
 
     def extra_repr(self):
         info = ''
@@ -422,10 +408,12 @@ class Learner(nn.Module):
         #print('ipm', self.inner_plasticity_multiplier)
         idx = 0
         layer = 0
-        #print('update')
         num_layers = len(self.activations_list)
-        new_vars = []
-          
+        if False:
+            for i in self.activations_list:
+                print(i.shape)
+            quit()
+
         y_onehot = torch.FloatTensor(out.shape[0], out.shape[1])
         y_onehot = y_onehot.to(self.device)
         y_onehot.zero_()
@@ -433,8 +421,6 @@ class Learner(nn.Module):
         loss = 0.5 * torch.sum((out - (y_onehot + out.detach())) ** 2)
 
         if self.use_error:
-            #print('gt', ground_truth)
-            #print('out', out)
             loss = torch.nn.functional.cross_entropy(out, ground_truth)
         
         if not self.use_derivative:
@@ -445,7 +431,8 @@ class Learner(nn.Module):
         # print(grad)
         if vars is None:
             vars = self.vars
-        
+
+        new_vars = []
         for var in vars:
             new_vars.append(var)
         
@@ -455,25 +442,19 @@ class Learner(nn.Module):
             
                 #if not hasattr(vars[idx], 'learn'):
                 #  vars[idx].learn = True
-                  
+
                 if not hasattr(self, 'optimize_out'):
                     self.optimize_out = False
-                  
                 if not hasattr(self, 'use_error'):
                     self.use_error = False
-                
                 if not hasattr(self, 'linear_feedback'):
                     self.linear_feedback = False
-                 
                 if not hasattr(self, 'use_derivative'):
                     self.use_derivative = False
-                  
                 if not hasattr(self, 'error_only_to_output'):
                     self.error_only_to_output = False
-                 
                 if not hasattr(self, 'neuron_level_plasticity'):
                     self.neuron_level_plasticity = False
-  
                 if not hasattr(self, 'layer_level_plasticity'):
                     self.layer_level_plasticity = False
                   
@@ -512,32 +493,35 @@ class Learner(nn.Module):
                             if not self.linear_feedback:
                                 next_activations = F.relu(next_activations, inplace=param[0])
                                 
-                            #if self.use_derivative:
-                            #    if layer == num_layers-1:
-                            #        next_activations = next_activations * torch.sign(out)
-                            #    else:
-                            #        next_activations = next_activations * torch.sign(self.activations_list[layer+1])
+                            # if self.use_derivative:
+                            #     if layer == num_layers-1:
+                            #         next_activations = next_activations * torch.sign(out)
+                            #     else:
+                            #         next_activations = next_activations * torch.sign(self.activations_list[layer+1])
   
-                        #print('activations size', next_activations.size(), self.activations_list[layer+1].size())
+                        # print('activations size', next_activations.size(), self.activations_list[layer+1].size())
                         activations = self.activations_list[layer]
                         next_activations = next_activations.view(self.activations_list[layer+1].size())
   
-                        #print(yoo)
                         if layer == num_layers - 1:
-                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * out
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations +\
+                                               (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) *\
+                                               out
                             if self.use_derivative:
-                                next_activations = -torch.autograd.grad(loss, out)[0]#.detach()
+                                next_activations = -torch.autograd.grad(loss, out)[0]  # .detach()
                         else:    
-                            next_activations = self.feedback_strength_vars[layer+1] * next_activations + (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) * self.activations_list[layer+1]
+                            next_activations = self.feedback_strength_vars[layer+1] * next_activations +\
+                                               (torch.ones(1).to(self.device) - self.feedback_strength_vars[layer+1]) *\
+                                               self.activations_list[layer+1]
                             if self.use_derivative:
-                                next_activations = -torch.autograd.grad(loss, self.activations_list[layer+1])[0]* (1+torch.sign(self.activations_list[layer+1]))*0.5#.detach()
+                                next_activations = - torch.autograd.grad(loss, self.activations_list[layer+1])[0] *\
+                                                   (1 + torch.sign(self.activations_list[layer+1])) * 0.5  # .detach()
   
                         #print('activations size', activations.size(), 'next activations size', next_activations.size())
-                        
                         #next_activations = torch.transpose(next_activations, 0, 1)
-                        
-                        
-                        new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2), next_activations.size(3), activations.size(1), param[3], param[3]).to(self.device)
+                        new_activations = torch.Tensor(next_activations.size(0), next_activations.size(2),
+                                                       next_activations.size(3), activations.size(1), param[3],
+                                                       param[3]).to(self.device)
                         
                         divide_factor = next_activations.size(2) * next_activations.size(3)
                         
@@ -546,15 +530,16 @@ class Learner(nn.Module):
                         newcoord = -1
                         for xcoord in range(0, activations.shape[2]-param[3]+1, stride):
                             newcoord += 1
-                            #print(newcoord, xcoord, activations.shape[2]-stride+1, activations.shape[2], stride)
-                            new_activations[:, newcoord, newcoord, :, :, :] = activations[:, :, xcoord:xcoord+param[3], xcoord:xcoord+param[3]]
+                            # print(newcoord, xcoord, activations.shape[2]-stride+1, activations.shape[2], stride)
+                            new_activations[:, newcoord, newcoord, :, :, :] = activations[:, :, xcoord:xcoord+param[3],
+                                                                              xcoord:xcoord+param[3]]
                             
                         next_activations = torch.transpose(next_activations, 1, 2)
                         next_activations = torch.transpose(next_activations, 2, 3)
                         next_activations = next_activations.contiguous().view(-1, next_activations.size(3))
                         
-                        new_activations = new_activations.view(new_activations.size(0)*new_activations.size(1)*new_activations.size(2), -1)
-                        
+                        new_activations = new_activations.view(new_activations.size(0)*new_activations.size(1) *
+                                                               new_activations.size(2), -1)
                         activations = new_activations
                         #print('df', divide_factor)
                         next_activations = next_activations / divide_factor
@@ -567,10 +552,10 @@ class Learner(nn.Module):
                         #print('act mag', torch.mean(torch.abs(activations)), torch.mean(torch.abs(next_activations)))
                         #print('activations size', activations.size(), 'next activations size', next_activations.size())
                                 
-                    #if (len(activations.shape) > 2):
-                    #  activations = activations.view(next_activations.shape[0], -1)
+                    # if (len(activations.shape) > 2):
+                    #     activations = activations.view(next_activations.shape[0], -1)
   
-                    #print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
+                    # print(self.plasticity[layer].shape, next_activations.shape, activations.shape, w.shape)
   
                     if hebbian:
                       if self.neuron_level_plasticity:

@@ -247,9 +247,7 @@ class SampleOmni:
         self.complete_iterator = train_iterator
         logger.info("Len of complete iterator = %d", len(self.complete_iterator) * 64)
 
-        train_iterator2 = torch.utils.data.DataLoader(dataset,
-                                                      batch_size=1,
-                                                      shuffle=True, num_workers=1)
+        train_iterator2 = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=1)
 
         self.another_complete_iterator = train_iterator2
 

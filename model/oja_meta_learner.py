@@ -1,5 +1,6 @@
 import logging
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import nn
@@ -31,7 +32,7 @@ class MetaLearingClassification(nn.Module):
                                    inner_plasticity_multiplier=args.inner_plasticity_multiplier)
 
         self.init_opt()
-        
+
     def init_stuff(self, args):
 
         self.hebb = args.hebb #use plain Hebbian learning instead of Oja's rule
@@ -66,19 +67,15 @@ class MetaLearingClassification(nn.Module):
         
         self.layer_level_plasticity = args.layer_level_plasticity
 
-
-        
         if self.batch_learning:
             self.update_step = 1
         
     def init_opt(self):
         self.optimizer = optim.Adam(self.net.vars, lr=self.meta_lr)
-    
         self.feedback_optimizer = optim.Adam(self.net.feedback_vars, lr=self.meta_feedback_lr)
         
         if self.neuron_level_plasticity:
             self.plasticity_optimizer = optim.Adam(self.net.neuron_plasticity, lr=self.meta_plasticity_lr)
-            
         elif self.layer_level_plasticity:
             self.plasticity_optimizer = optim.Adam(self.net.layer_plasticity, lr=self.meta_plasticity_lr)
         else:
@@ -212,18 +209,15 @@ class MetaLearingClassification(nn.Module):
         #if self.batch_learning:
         #    x_traj = torch.transpose(x_traj, 0, 1)
         #    y_traj = torch.transpose(y_traj, 0, 1)
-        
-        #print('heyy', x_traj.size(), y_traj.size(), x_rand.size(), y_rand.size())
 
         if self.vary_length:
             self.update_step = len(x_traj)
-        
         if self.randomize_plastic_weights:
             self.net.randomize_plastic_weights()
         if self.zero_plastic_weights:
             self.net.zero_plastic_weights()
 
-        losses_q = [0 for _ in range(self.update_step + 1)]  # losses_q[i] is the loss on step i
+        losses_q = [0 for _ in range(self.update_step + 1)]
         corrects = [0 for _ in range(self.update_step + 1)]
 
         for i in range(1):  # fixme: what is this range(1)??
@@ -237,7 +231,7 @@ class MetaLearingClassification(nn.Module):
                 fast_weights = self.net.getOjaUpdate(y_traj[:, 0], logits, None, hebbian=self.hebb)
             else:
                 # todo: difference b/w x_traj & x_rand? Online vs iid training?
-                logits = self.net(x_traj[0], vars=None, bn_training=False)  # todo: why number of classes=1000? logits.shape[1]
+                logits = self.net(x_traj[0], vars=None, bn_training=False)  # todo: why number of classes=1000?
                 loss = F.cross_entropy(logits, y_traj[0])  # todo: loss overwritten in the next learning steps. What is the use of this?
                 # grad = torch.autograd.grad(loss, self.net.parameters())
                 # fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters())))
@@ -307,7 +301,6 @@ class MetaLearingClassification(nn.Module):
 
             # -- Iterate for K learning steps
             for k in range(1, self.update_step):
-
                 logits = self.net(x_traj[k], fast_weights, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[k])  # todo: Only loss in last itr is returned! why?
                 # grad = torch.autograd.grad(loss, fast_weights)
@@ -320,7 +313,6 @@ class MetaLearingClassification(nn.Module):
                     params_new.learn = params_old.learn
 
                 logits = self.net(x_rand[0], fast_weights, bn_training=False)
-                
                 loss_q = F.cross_entropy(logits, y_rand[0])
                 losses_q[k + 1] += loss_q
 
@@ -595,11 +587,8 @@ class MetaLearnerRegression(nn.Module):
                 
         '''        
         self.optimizer.step()
-        
         self.feedback_optimizer.step()
-        
         self.plasticity_optimizer.step()
-        
         self.feedback_strength_optimizer.step()
 
         return losses_q

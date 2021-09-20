@@ -60,7 +60,6 @@ def main(args):
     if args.oja or args.hebb:
         maml = OjaMetaLearingClassification(args, config).to(device)
     else:
-        print('starting up')
         maml = MetaLearingClassification(args, config).to(device)
 
     # --
@@ -197,7 +196,7 @@ def main(args):
                 maml.net.layer_plasticity[index] = torch.nn.Parameter(maml.net.layer_plasticity[index] * 0)
                 maml.net.neuron_plasticity[index] = torch.nn.Parameter(maml.net.neuron_plasticity[index] * 0)
                 
-    print('heyy', maml.net.feedback_vars)
+    print('Feedback variables:\n', maml.net.feedback_vars)
     maml.init_opt()
     for name, param in maml.named_parameters():
         param.learn = True
@@ -227,11 +226,11 @@ def main(args):
         logger.info("TLN layer = %s", a[0])
 
     for step in range(args.steps):
-        '''
-        print('plasticity')
-        for p in maml.net.plasticity:
-            print(p.size(), torch.sum(p), p)
-        '''
+        # print('plasticity')
+        # for p in maml.net.plasticity:
+        #     print(p.size(), torch.sum(p), p)
+
+        # todo: how are we dividing the data?
         t1 = np.random.choice(args.classes, args.tasks, replace=False)
         d_traj_iterators = []
         for t in t1:
