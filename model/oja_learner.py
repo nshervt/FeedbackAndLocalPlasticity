@@ -56,13 +56,16 @@ class Learner(nn.Module):
         self.neuron_plasticity = nn.ParameterList()
         self.layer_plasticity = nn.ParameterList()
 
+        # -- set device
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+        # -- init model parameters
         starting_width = 84
         cur_width = starting_width
         for i, (name, param) in enumerate(self.config):
             if name is 'conv2d':
 
+                # -- forward weights (W)
                 stride, padding = param[4], param[5]
                 cur_width = (cur_width + 2 * padding - param[3] + stride) // stride
                 w = nn.Parameter(torch.ones(*param[:4]))  # [ch_out, ch_in, kernelsz, kernelsz], gain=1 acc to cbfinn
@@ -70,15 +73,18 @@ class Learner(nn.Module):
                 self.vars.append(w)
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
 
+                # -- plasticity coefficients (alpha)
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
                 # self.activations_list.append([])
 
+                # -- not implemented
                 self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0], param[1] * param[2] *
                                                                                       param[3])))
                 self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))
                 self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))
 
+                # -- feedback weights (B)
                 feedback_var = []
                 for fl in range(num_feedback_layers):
                     in_dim = self.width
@@ -103,15 +109,18 @@ class Learner(nn.Module):
                 # self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))#bias feedback -- not implemented
             elif name is 'convt2d':
 
+                # -- forward weights (W)
                 w = nn.Parameter(torch.ones(*param[:4]))  # [ch_in, ch_out, kernelsz, kernelsz, stride, padding], gain=1 acc to cbfinn
                 torch.nn.init.kaiming_normal_(w)
                 self.vars.append(w)
                 self.vars.append(nn.Parameter(torch.zeros(param[1])))
 
+                # -- plasticity coefficients (alpha)
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param[:4])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[1])))
                 # self.activations_list.append([])
 
+                # -- not implemented
                 self.plasticity.append(nn.Parameter(torch.zeros(1)))
                 self.neuron_plasticity.append(nn.Parameter(torch.zeros(1)))
                 self.layer_plasticity.append(nn.Parameter(torch.zeros(1)))
@@ -119,19 +128,23 @@ class Learner(nn.Module):
                 self.feedback_vars_bundled.append(nn.Parameter(torch.zeros(1)))
             elif name is 'linear':
 
+                # -- forward weights (W)
                 w = nn.Parameter(torch.ones(*param))  # gain=1 according to cbfinn's implementation
                 torch.nn.init.kaiming_normal_(w)
                 self.vars.append(w)
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
 
+                # -- plasticity coefficients (alpha)
                 self.vars_plasticity.append(nn.Parameter(torch.ones(*param)))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
                 # self.activations_list.append([])
 
+                # -- not implemented
                 self.plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(*param)))
                 self.neuron_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(param[0])))
                 self.layer_plasticity.append(nn.Parameter(self.init_plasticity * torch.ones(1)))
 
+                # -- feedback weights (B)
                 feedback_var = []
                 for fl in range(num_feedback_layers):
                     in_dim = self.width
@@ -157,10 +170,12 @@ class Learner(nn.Module):
             elif name is "rep":
                 pass
             elif name is 'bn':
+                # -- forward weights (W)
                 w = nn.Parameter(torch.ones(param[0]))  # [ch_out]
                 self.vars.append(w)
                 self.vars.append(nn.Parameter(torch.zeros(param[0])))
 
+                # -- plasticity coefficients (alpha)
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
                 self.vars_plasticity.append(nn.Parameter(torch.ones(param[0])))
 
@@ -171,6 +186,7 @@ class Learner(nn.Module):
             elif name in ['tanh', 'relu', 'leakyrelu', 'sigmoid', 'linear_act']:
                 self.activations_list.append([])
 
+                # -- strength of feedback (beta)
                 self.feedback_strength_vars.append(nn.Parameter(self.init_feedback_strength * torch.ones(1)))
             elif name in ['upsample', 'avg_pool2d', 'max_pool2d', 'flatten', 'reshape']:
                 continue
@@ -443,6 +459,7 @@ class Learner(nn.Module):
                 #if not hasattr(vars[idx], 'learn'):
                 #  vars[idx].learn = True
 
+                # -- set undefined flags
                 if not hasattr(self, 'optimize_out'):
                     self.optimize_out = False
                 if not hasattr(self, 'use_error'):

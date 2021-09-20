@@ -31,7 +31,7 @@ class MetaLearingClassification(nn.Module):
                                    layer_level_plasticity=args.layer_level_plasticity,
                                    inner_plasticity_multiplier=args.inner_plasticity_multiplier)
 
-        self.init_opt()
+        self.init_opt()  # todo : probably redundant
 
     def init_stuff(self, args):
 
@@ -71,6 +71,9 @@ class MetaLearingClassification(nn.Module):
             self.update_step = 1
         
     def init_opt(self):
+        """
+            initialize the optimizers
+        """
         self.optimizer = optim.Adam(self.net.vars, lr=self.meta_lr)
         self.feedback_optimizer = optim.Adam(self.net.feedback_vars, lr=self.meta_feedback_lr)
         
@@ -217,10 +220,11 @@ class MetaLearingClassification(nn.Module):
         if self.zero_plastic_weights:
             self.net.zero_plastic_weights()
 
+        # -- init vector of loss and correct pred for K+1 steps
         losses_q = [0 for _ in range(self.update_step + 1)]
         corrects = [0 for _ in range(self.update_step + 1)]
 
-        for i in range(1):  # fixme: what is this range(1)??
+        for i in range(1):  # todo: why 'range(1)'?
             if self.batch_learning:
                 logits = self.net(x_traj[:, 0], vars=None, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[:, 0])
@@ -230,7 +234,7 @@ class MetaLearingClassification(nn.Module):
                 #                         zip(grad, self.net.parameters())))
                 fast_weights = self.net.getOjaUpdate(y_traj[:, 0], logits, None, hebbian=self.hebb)
             else:
-                # todo: difference b/w x_traj & x_rand? Online vs iid training?
+                # todo: difference b/w x_traj & x_rand?
                 logits = self.net(x_traj[0], vars=None, bn_training=False)  # todo: why number of classes=1000?
                 loss = F.cross_entropy(logits, y_traj[0])  # todo: loss overwritten in the next learning steps. What is the use of this?
                 # grad = torch.autograd.grad(loss, self.net.parameters())
@@ -242,10 +246,10 @@ class MetaLearingClassification(nn.Module):
             # todo: what is this part doing? what is param.learn? why it's changing?
             for params_old, params_new in zip(self.net.parameters(), fast_weights):
                 params_new.learn = params_old.learn
-                # todo: difference b/w self.net.parameters() & fast_weights?
-                # todo: which one is the updated feedback?
+                # todo: difference b/w self.net.parameters() & fast_weights? init weight and updates?
+                # todo: which one is the updated feedback? both are just weights?
 
-            # this is the loss and accuracy before first update
+            # -- loss and correct predictions
             if self.batch_learning:
                 logits_q = self.net(x_rand[0], self.net.parameters(), bn_training=False)
                 loss_q = F.cross_entropy(logits_q, y_rand[0])
@@ -264,11 +268,12 @@ class MetaLearingClassification(nn.Module):
                     corrects[1] = corrects[1] + correct
             else:
                 with torch.no_grad():
+                    # -- loss before the first update
                     logits_q = self.net(x_rand[0], self.net.parameters(), bn_training=False)
                     loss_q = F.cross_entropy(logits_q, y_rand[0])
                     losses_q[0] += loss_q
 
-                    # -- no. of correct predictions at time step 0.
+                    # -- correct predictions before the first update
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[0] = corrects[0] + correct
@@ -290,16 +295,17 @@ class MetaLearingClassification(nn.Module):
 
                 with torch.no_grad():  # todo: why 2 times torch.no_grad()?
                     # [setsz, nway]
+                    # -- loss at time step 1
                     logits_q = self.net(x_rand[0], fast_weights, bn_training=False)
                     loss_q = F.cross_entropy(logits_q, y_rand[0])
                     losses_q[1] += loss_q
 
-                    # -- no. of correct predictions at time step 1.
+                    # -- correct predictions at time step 1
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()
                     corrects[1] = corrects[1] + correct
 
-            # -- Iterate for K learning steps
+            # -- iterate for K learning steps
             for k in range(1, self.update_step):
                 logits = self.net(x_traj[k], fast_weights, bn_training=False)
                 loss = F.cross_entropy(logits, y_traj[k])  # todo: Only loss in last itr is returned! why?
@@ -312,11 +318,12 @@ class MetaLearingClassification(nn.Module):
                 for params_old, params_new in zip(self.net.parameters(), fast_weights):
                     params_new.learn = params_old.learn
 
+                # -- loss at time step k+1.
                 logits = self.net(x_rand[0], fast_weights, bn_training=False)
                 loss_q = F.cross_entropy(logits, y_rand[0])
                 losses_q[k + 1] += loss_q
 
-                # -- no. of correct predictions at time step k+1.
+                # -- correct predictions at time step k+1.
                 with torch.no_grad():
                     pred_q = F.softmax(logits, dim=1).argmax(dim=1)
                     correct = torch.eq(pred_q, y_rand[0]).sum().item()  # convert to numpy
@@ -394,6 +401,7 @@ class MetaLearingClassification(nn.Module):
           except:
             print("None")
         '''
+        # -- accuracy
         accs = np.array(corrects) / len(x_rand[0])
 
         return accs, loss

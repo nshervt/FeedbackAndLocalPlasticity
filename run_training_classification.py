@@ -15,6 +15,7 @@ from experiment.experiment import experiment
 from model.meta_learner import MetaLearingClassification
 from model.oja_meta_learner import MetaLearingClassification as OjaMetaLearingClassification
 import datasets.miniimagenet as imgnet
+import matplotlib.pyplot as plt
 
 
 def main(args):
@@ -56,7 +57,7 @@ def main(args):
     config = mf.ModelFactory.get_model(args.model_type, args.dataset, width=args.width,
                                        num_extra_dense_layers=args.num_extra_dense_layers)
 
-    # --
+    # -- todo: set learning rule?
     if args.oja or args.hebb:
         maml = OjaMetaLearingClassification(args, config).to(device)
     else:
@@ -197,23 +198,27 @@ def main(args):
                 maml.net.neuron_plasticity[index] = torch.nn.Parameter(maml.net.neuron_plasticity[index] * 0)
                 
     print('Feedback variables:\n', maml.net.feedback_vars)
+
+    # -- initialize optimizers
     maml.init_opt()
+
+    # todo: diff b/w maml.named_parameters() & maml.net.named_parameters()?
+    # -- set learning flags
     for name, param in maml.named_parameters():
         param.learn = True
     for name, param in maml.net.named_parameters():
         param.learn = True
 
+    # -- set learning flags (frozen layers)
     if args.freeze_out_plasticity:
         maml.net.plasticity[-1].requires_grad = False
     total_ff_vars = 2 * (6 + 2 + args.num_extra_dense_layers)
     frozen_layers = []
     for temp in range(args.rln * 2):
         frozen_layers.append("net.vars." + str(temp))
-
     for temp in range(args.rln_end * 2):
         frozen_layers.append("net.vars." + str(total_ff_vars - 1 - temp))
     for name, param in maml.named_parameters():
-        # logger.info(name)
         if name in frozen_layers:
             logger.info("RLN layer %s", str(name))
             param.learn = False
@@ -237,6 +242,8 @@ def main(args):
             d_traj_iterators.append(sampler.sample_task([t]))
 
         d_rand_iterator = sampler.get_complete_iterator()
+        # -- d_traj_iterators: 5 * 20
+        # -- d_rand_iterator: 301 * 64
 
         x_spt, y_spt, x_qry, y_qry = maml.sample_training_data(d_traj_iterators, d_rand_iterator,
                                                                steps=args.update_step, iid=args.iid)
@@ -256,9 +263,8 @@ def main(args):
 
         x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)
 
+        # -- train model
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
-        print(x_spt.shape, y_spt.shape, x_qry.shape, y_qry.shape)
-
 
         if step % 1 == 0:
             writer.add_scalar('/metatrain/train/accuracy', accs[-1], step)
