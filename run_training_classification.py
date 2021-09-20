@@ -227,6 +227,7 @@ def main(args):
     list_of_params = list(filter(lambda x: x.learn, maml.parameters()))
     list_of_names = list(filter(lambda x: x[1].learn, maml.named_parameters()))
 
+    # todo: what does RLN and TLN mean?
     for a in list_of_names:
         logger.info("TLN layer = %s", a[0])
 
@@ -261,7 +262,7 @@ def main(args):
             num = int(y_qry[0][i].cpu().numpy())
             y_qry[0][i] = torch.tensor(perm[old.index(num)])
 
-        x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)
+        x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)  # todo: how was data split here?
 
         # -- train model
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
@@ -329,8 +330,8 @@ if __name__ == '__main__':
     argparser.add_argument('--num_feedback_layers', type=int, help='num dense layers in feedback', default=1)
     # argparser.add_argument('--num_extra_nonplastic_dense_output_layers', type=int,
     #                        help='num nonplastic linear layers in addition to one output layer', default=0)
-    argparser.add_argument("--rln", type=int, default=6)
-    argparser.add_argument("--rln_end", type=int, default=0)
+    argparser.add_argument("--rln", type=int, default=6)  # todo: add description.
+    argparser.add_argument("--rln_end", type=int, default=0)  # todo: add description.
     argparser.add_argument("--no_class_reset", action="store_true")
     argparser.add_argument("--all_class_reset", action="store_true")
     argparser.add_argument("--from_saved", action="store_true")
