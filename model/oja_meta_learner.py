@@ -98,40 +98,18 @@ class MetaLearingClassification(nn.Module):
 
     def sample_training_data(self, iterators, it2, steps=2, iid=False):
 
-        x_traj = []
-        y_traj = []
-        x_rand = []
-        y_rand = []
+        x_traj, y_traj, x_rand, y_rand = [], [], [], []
 
         counter = 0
-
         class_cur = 0
-        class_to_reset = 0
         for it1 in iterators:
             for img, data in it1:
-                #print('sampling img size', img.size(), data.size())
-
-
-                # y_mapping[class_cur] = float(y_mapping[class_cur])
-                class_to_reset = data[0].item()
-                #if self.all_class_reset:
-                #    self.reset_layer()
-                #elif not self.no_class_reset:
-                    #print('resetting classifier', class_to_reset)
-                #    self.reset_classifer(class_to_reset)
-                # data[data>-1] = y_mapping[class_cur]
                 counter += 1
                 x_traj.append(img)
                 y_traj.append(data)
                 if counter % int(steps / len(iterators)) == 0:
                     class_cur += 1
                     break
-        #self.reset_layer()          
-        #if self.all_class_reset:
-        #    self.reset_layer()
-        #elif not self.no_class_reset:
-        #    print('resetting classifier')
-        #    self.reset_classifer(class_to_reset)
 
         if len(x_traj) < steps:
             it1 = iterators[-1]
@@ -175,29 +153,19 @@ class MetaLearingClassification(nn.Module):
                 y_traj_new.append(y_traj[a])
             x_traj = x_traj_new
             y_traj = y_traj_new
-        #print('Sizes', x_rand_temp.size(), y_rand_temp.size(), x_traj.size(), y_traj.size(), x_rand.size(), y_rand.size())
+
         y_rand_temp = torch.cat(y_rand_temp).unsqueeze(0)
         x_rand_temp = torch.cat(x_rand_temp).unsqueeze(0)
         x_traj, y_traj, x_rand, y_rand = torch.stack(x_traj), torch.stack(y_traj), torch.stack(x_rand), torch.stack(
             y_rand)
-
-        #print('new Sizes', x_rand_temp.size(), y_rand_temp.size(), x_traj.size(), y_traj.size(), x_rand.size(), y_rand.size())
-        
         
         x_rand = torch.cat([x_rand, x_rand_temp], 1)
         y_rand = torch.cat([y_rand, y_rand_temp], 1)
 
-        #print('new new Sizes', x_rand_temp.size(), y_rand_temp.size(), x_traj.size(), y_traj.size(), x_rand.size(), y_rand.size())
-        
         if self.train_on_new:
-            #print('diffx', torch.sum(torch.abs(x_traj.view(-1) - x_rand_temp.view(-1))))
-            #print('diffy', torch.sum(torch.abs(y_traj.view(-1) - y_rand_temp.view(-1))))
-            #print('y_traj', y_traj)
-            #print('y_rand_temp', y_rand_temp)
-            return x_traj, y_traj, x_rand_temp, y_rand_temp #equivalent to x_traj, y_traj, x_traj, y_traj
-        
+            return x_traj, y_traj, x_rand_temp, y_rand_temp  # equivalent to x_traj, y_traj, x_traj, y_traj
         else:
-            return x_traj, y_traj, x_rand, y_rand #x_rand has both the randomly sampled points and the traj points, in that order
+            return x_traj, y_traj, x_rand, y_rand  # x_rand has both the randomly sampled points and the traj points, in that order
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
         """
